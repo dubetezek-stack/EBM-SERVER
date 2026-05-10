@@ -804,7 +804,7 @@ var App = /*#__PURE__*/function () {
             case 9:
               serverCfg = _context7.v;
               body.innerHTML = renderServerConfig(serverCfg || {});
-              this.bindServerConfig();
+              this.bindServerConfig(serverCfg || {});
             case 10:
               _context7.n = 12;
               break;
@@ -1088,16 +1088,121 @@ var App = /*#__PURE__*/function () {
     }
   }, {
     key: "bindServerConfig",
-    value: function bindServerConfig() {
+    value: function bindServerConfig(serverConfig, isRefresh) {
       var self = this;
+
+      function updatePublicIPDisplay() {
+        var el = document.getElementById('dns-public-ip');
+        if (el) el.textContent = 'IP Atual: ...';
+        API.get('/admin/server/ip').then(function (res) {
+          if (el) el.textContent = 'IP Atual: ' + res.ip;
+        })["catch"](function (e) {
+          if (el) el.textContent = 'IP Atual: Erro';
+        });
+      }
+
+      updatePublicIPDisplay();
+      var ipRefreshBtn = document.getElementById('dns-ip-refresh');
+      if (ipRefreshBtn) ipRefreshBtn.onclick = updatePublicIPDisplay;
+
+      if (!isRefresh) {
+        // Countdown timers + green flash indicators
+        if (this.dnsPolling) clearInterval(this.dnsPolling);
+        if (this.dnsTickTimer) clearInterval(this.dnsTickTimer);
+
+        var isAutoOn = serverConfig && serverConfig.dnsAutoRefresh !== false;
+
+        var _checkIntervalMin = ((serverConfig && serverConfig.dnsCheckInterval) || 1);
+        var _updateIntervalMin = ((serverConfig && serverConfig.dnsInterval) || 5);
+        var _checkMs = _checkIntervalMin * 60000;
+
+        var now = Date.now();
+        var _checkSecsLeft = serverConfig.nextCheckTime ? Math.max(0, Math.floor((serverConfig.nextCheckTime - now) / 1000)) : _checkIntervalMin * 60;
+        var _updateSecsLeft = serverConfig.nextUpdateTime ? Math.max(0, Math.floor((serverConfig.nextUpdateTime - now) / 1000)) : _updateIntervalMin * 60;
+
+        var _isAnalyzing = false;
+
+        function _fmtCountdown(secs) {
+          if (!isAutoOn) return 'Pausado';
+          var m = Math.floor(secs / 60);
+          var s = secs % 60;
+          return (m > 0 ? m + 'm ' : '') + s + 's';
+        }
+
+        function _flashOk(elId) {
+          var el = document.getElementById(elId);
+          if (el) {
+            el.style.display = 'inline';
+            setTimeout(function() { if (el) el.style.display = 'none'; }, 15000);
+          }
+        }
+
+        function _updateCountdownDisplays() {
+          var checkEl = document.getElementById('dns-check-countdown');
+          if (checkEl) {
+            if (_isAnalyzing) {
+              checkEl.innerHTML = '<svg class="spin-anim" style="width:12px;height:12px;margin-right:4px;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>Analisando...';
+            } else {
+              checkEl.textContent = _fmtCountdown(_checkSecsLeft);
+            }
+          }
+          var updateEl = document.getElementById('dns-update-countdown');
+          if (updateEl) updateEl.textContent = _fmtCountdown(_updateSecsLeft);
+        }
+
+        // Tick every second to update countdowns
+        _updateCountdownDisplays();
+        
+        if (isAutoOn) {
+          this.dnsTickTimer = setInterval(function() {
+            _checkSecsLeft--;
+            if (_checkSecsLeft < 0) {
+              _checkSecsLeft = _checkIntervalMin * 60;
+              _isAnalyzing = true;
+              _updateCountdownDisplays();
+              
+              // Aguarda 6 segundos para dar tempo do backend finalizar o comando 'ping', a busca de IP público, e salvar no JSON
+              setTimeout(function() {
+                _isAnalyzing = false;
+                _flashOk('dns-check-ok');
+                API.get('/admin/server').then(function (cfg) {
+                  var list = document.getElementById('dns-list');
+                  if (list) {
+                    var tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = renderServerConfig(cfg);
+                    var newList = tempDiv.querySelector('#dns-list');
+                    if (newList) {
+                      list.innerHTML = newList.innerHTML;
+                      self.bindServerConfig(cfg, true);
+                    }
+                  }
+                });
+              }, 6000);
+            }
+            
+            _updateSecsLeft--;
+            if (_updateSecsLeft < 0) {
+              _updateSecsLeft = _updateIntervalMin * 60;
+              _flashOk('dns-update-ok');
+            }
+            
+            _updateCountdownDisplays();
+          }, 1000);
+        } // end if (isAutoOn)
+      }
+
       var saveBtn = document.getElementById('server-config-save');
       if (saveBtn) {
         saveBtn.onclick = function () {
           var name = document.getElementById('cfg-server-name').value.trim();
           var port = document.getElementById('cfg-server-port').value;
+          var auto = document.getElementById('cfg-dns-auto').checked;
+          var interval = document.getElementById('cfg-dns-interval').value;
           API.put('/admin/server', {
             serverName: name,
-            port: parseInt(port)
+            port: parseInt(port),
+            dnsAutoRefresh: auto,
+            dnsInterval: parseInt(interval)
           }).then(function (res) {
             showToast('Configurações salvas!', 'success');
             if (res && res.needsRestart) showToast('Reinicie para aplicar nova porta', 'warning');
@@ -1105,40 +1210,21 @@ var App = /*#__PURE__*/function () {
             return showToast(e.message, 'error');
           });
         };
-      } // DDNS Management
+      }
 
-      var ddnsFormSave = document.getElementById('ddns-form-save');
-
-      if (ddnsFormSave) {
-        ddnsFormSave.onclick = function () {
-          var index = parseInt(document.getElementById('cfg-ddns-index').value);
-          var record = {
-            token: document.getElementById('cfg-ddns-token').value.trim(),
-            zoneId: document.getElementById('cfg-ddns-zoneid').value.trim(),
-            recordName: document.getElementById('cfg-ddns-record').value.trim(),
-            proxied: document.getElementById('cfg-ddns-proxied').checked,
-            enabled: document.getElementById('cfg-ddns-enabled').checked
-          };
-
-          if (!record.token || !record.zoneId || !record.recordName) {
-            return showToast('Preencha Token, Zone ID e Domínio', 'error');
-          }
-
-          API.get('/admin/server').then(function (cfg) {
-            var records = cfg.ddnsRecords || [];
-
-            if (index === -1) {
-              records.push(record);
-            } else {
-              record.lastIp = records[index].lastIp; // Preserve last IP
-              records[index] = record;
-            }
-
-            return API.put('/admin/server', {
-              ddnsRecords: records
-            });
+      var dnsAutoSaveBtn = document.getElementById('dns-auto-save');
+      if (dnsAutoSaveBtn) {
+        dnsAutoSaveBtn.onclick = function () {
+          var auto = document.getElementById('cfg-dns-auto').checked;
+          var interval = parseInt(document.getElementById('cfg-dns-interval').value) || 5;
+          var checkInterval = parseInt(document.getElementById('cfg-dns-check-interval').value) || 1;
+          showToast('Salvando intervalos...', 'info');
+          API.put('/admin/server', {
+            dnsAutoRefresh: auto,
+            dnsInterval: interval,
+            dnsCheckInterval: checkInterval
           }).then(function () {
-            showToast('Servidor DDNS salvo!', 'success');
+            showToast('Intervalos salvos! Reinicie para aplicar.', 'success');
             self.loadConfigTab('server');
           })["catch"](function (e) {
             return showToast(e.message, 'error');
@@ -1146,60 +1232,153 @@ var App = /*#__PURE__*/function () {
         };
       }
 
-      document.getElementById('ddns-form-cancel').onclick = function () {
-        document.getElementById('cfg-ddns-index').value = "-1";
-        document.getElementById('cfg-ddns-token').value = "";
-        document.getElementById('cfg-ddns-zoneid').value = "";
-        document.getElementById('cfg-ddns-record').value = "";
-        document.getElementById('ddns-form-title').textContent = "Adicionar Servidor";
-      };
+      var dnsAutoToggle = document.getElementById('cfg-dns-auto');
+      if (dnsAutoToggle) {
+        dnsAutoToggle.onchange = function() {
+          dnsAutoSaveBtn.click();
+        };
+      }
 
-      document.querySelectorAll('.cfg-edit-ddns').forEach(function (btn) {
+      // DNS Management
+      var dnsFormSave = document.getElementById('dns-form-save');
+      if (dnsFormSave) {
+        dnsFormSave.onclick = function () {
+          var index = parseInt(document.getElementById('cfg-dns-index').value);
+          var record = {
+            token: document.getElementById('cfg-dns-token').value.trim(),
+            domains: document.getElementById('cfg-dns-domains').value.trim(),
+            enabled: document.getElementById('cfg-dns-enabled').checked
+          };
+          if (!record.token || !record.domains) {
+            return showToast('Preencha Token e Domínio(s)', 'error');
+          }
+          API.get('/admin/server').then(function (cfg) {
+            var records = cfg.dnsRecords || [];
+            if (index === -1) {
+              records.push(record);
+            } else {
+              record.lastIp = records[index].lastIp;
+              records[index] = record;
+            }
+            return API.put('/admin/server', {
+              dnsRecords: records,
+              dnsAutoRefresh: document.getElementById('cfg-dns-auto').checked,
+              dnsInterval: parseInt(document.getElementById('cfg-dns-interval').value)
+            });
+          }).then(function () {
+            showToast('DNS salvo!', 'success');
+            self.loadConfigTab('server');
+          })["catch"](function (e) {
+            return showToast(e.message, 'error');
+          });
+        };
+      }
+      var dnsFormCancel = document.getElementById('dns-form-cancel');
+      if (dnsFormCancel) {
+        dnsFormCancel.onclick = function () {
+          document.getElementById('cfg-dns-index').value = "-1";
+          document.getElementById('cfg-dns-token').value = "";
+          document.getElementById('cfg-dns-domains').value = "";
+          document.getElementById('dns-form-title').textContent = "Configurar Domínio";
+        };
+      }
+      document.querySelectorAll('.cfg-test-dns').forEach(function (btn) {
         btn.onclick = function () {
           var index = parseInt(btn.dataset.index);
-          API.get('/admin/server').then(function (cfg) {
-            var r = cfg.ddnsRecords[index];
-            document.getElementById('cfg-ddns-index').value = index;
-            document.getElementById('cfg-ddns-token').value = r.token;
-            document.getElementById('cfg-ddns-zoneid').value = r.zoneId;
-            document.getElementById('cfg-ddns-record').value = r.recordName;
-            document.getElementById('cfg-ddns-proxied').checked = r.proxied;
-            document.getElementById('cfg-ddns-enabled').checked = r.enabled;
-            document.getElementById('ddns-form-title').textContent = "Editar Servidor";
-            document.getElementById('ddns-form').scrollIntoView();
+          showToast('Sincronizando domínio...', 'info');
+          API.post('/admin/server/ddns/test', {
+            index: index
+          }).then(function (res) {
+            if (res.success && res.result && res.result.results && res.result.results.length > 0) {
+              var r = res.result.results[0];
+              if (r.status === 'OK') {
+                showToast('DNS OK! IP: ' + r.ip, 'success');
+              } else {
+                showToast('Erro DuckDNS: ' + (r.message || r.status), 'error');
+              }
+              self.loadConfigTab('server');
+            } else if (res.success) {
+               // Fallback if results array is empty but success is true
+               showToast('Comando enviado!', 'info');
+               self.loadConfigTab('server');
+            }
+          })["catch"](function (e) {
+            return showToast('Falha na rede: ' + e.message, 'error');
           });
         };
       });
-      document.querySelectorAll('.cfg-del-ddns').forEach(function (btn) {
-        btn.onclick = function () {
-          if (!confirm('Remover este servidor DDNS?')) return;
+      document.querySelectorAll('.cfg-toggle-dns').forEach(function (btn) {
+        btn.onchange = function () {
           var index = parseInt(btn.dataset.index);
+          var enabled = btn.checked;
           API.get('/admin/server').then(function (cfg) {
-            var records = cfg.ddnsRecords || [];
-            records.splice(index, 1);
+            var records = cfg.dnsRecords || [];
+            if (records[index]) {
+              records[index].enabled = enabled;
+            }
             return API.put('/admin/server', {
-              ddnsRecords: records
+              dnsRecords: records,
+              dnsAutoRefresh: document.getElementById('cfg-dns-auto').checked,
+              dnsInterval: parseInt(document.getElementById('cfg-dns-interval').value)
             });
           }).then(function () {
-            showToast('Servidor removido', 'success');
+            showToast(enabled ? 'DNS Ativado — sincronizando...' : 'DNS Desativado', enabled ? 'success' : 'info');
+            if (enabled) {
+              // Trigger immediate DDNS cycle when re-enabling
+              API.post('/admin/server/ddns/test', { index: index })
+                .then(function() { self.loadConfigTab('server'); })
+                ["catch"](function() { self.loadConfigTab('server'); });
+            } else {
+              self.loadConfigTab('server');
+            }
+          });
+        };
+      });
+      document.querySelectorAll('.cfg-edit-dns').forEach(function (btn) {
+        btn.onclick = function () {
+          var index = parseInt(btn.dataset.index);
+          API.get('/admin/server').then(function (cfg) {
+            var r = cfg.dnsRecords[index];
+            document.getElementById('cfg-dns-index').value = index;
+            document.getElementById('cfg-dns-token').value = r.token;
+            document.getElementById('cfg-dns-domains').value = r.domains;
+            document.getElementById('cfg-dns-enabled').checked = r.enabled;
+            document.getElementById('dns-form-title').textContent = "Editar Domínio";
+            document.getElementById('dns-form').scrollIntoView();
+          });
+        };
+      });
+      document.querySelectorAll('.cfg-del-dns').forEach(function (btn) {
+        btn.onclick = function () {
+          if (!confirm('Remover este domínio?')) return;
+          var index = parseInt(btn.dataset.index);
+          API.get('/admin/server').then(function (cfg) {
+            var records = cfg.dnsRecords || [];
+            records.splice(index, 1);
+            return API.put('/admin/server', {
+              dnsRecords: records,
+              dnsAutoRefresh: document.getElementById('cfg-dns-auto').checked,
+              dnsInterval: parseInt(document.getElementById('cfg-dns-interval').value)
+            });
+          }).then(function () {
+            showToast('Domínio removido', 'success');
             self.loadConfigTab('server');
           });
         };
       });
-
-      var testBtn = document.getElementById('server-ddns-test');
+      var testBtn = document.getElementById('server-dns-test');
       if (testBtn) {
         testBtn.onclick = function () {
           testBtn.disabled = true;
-          testBtn.textContent = 'Testando...';
+          testBtn.textContent = 'Processando...';
           API.post('/admin/server/ddns/test').then(function () {
-            showToast('DDNS Atualizado com sucesso!', 'success');
+            showToast('DNS Atualizado com sucesso!', 'success');
             self.loadConfigTab('server');
           })["catch"](function (e) {
             return showToast(e.message, 'error');
           })["finally"](function () {
             testBtn.disabled = false;
-            testBtn.textContent = 'Testar Tudo agora';
+            testBtn.textContent = 'Forçar Atualização Agora';
           });
         };
       }

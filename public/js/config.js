@@ -60,54 +60,145 @@ function renderSessionsConfig(sessions) {
 }
 
 function renderServerConfig(serverConfig) {
-  var ddnsHtml = '';
-  var records = serverConfig.ddnsRecords || [];
+  var dnsHtml = '';
+  var records = serverConfig.dnsRecords || [];
   for (var i = 0; i < records.length; i++) {
     var r = records[i];
-    var statusIcon = r.enabled ? '<span style="color:#0fa36b">●</span>' : '<span style="color:var(--text-muted)">○</span>';
-    ddnsHtml += '<div class="config-item" style="padding:10px">' + '<div style="width:24px;display:flex;align-items:center;font-size:18px">' + statusIcon + '</div>' + '<div class="config-item-info">' + '<div class="config-item-name">' + escapeHtml(r.recordName) + '</div>' + '<div class="config-item-detail">IP: ' + (r.lastIp || 'Aguardando...') + '</div>' + '</div>' + '<div class="config-item-actions">' + '<button class="btn-icon cfg-edit-ddns" data-index="' + i + '" title="Editar">' + Icons.edit + '</button>' + '<button class="btn-icon cfg-del-ddns" data-index="' + i + '" title="Remover">' + Icons.trash + '</button>' + '</div>' + '</div>';
+    var ipMatch = r.lastIp && r.lastDnsIp && r.lastIp === r.lastDnsIp;
+    var isOk = r.lastStatus === 'OK';
+    
+    var statusColor = '#ffb142'; // Pending/Syncing (Orange)
+    var statusText = 'Sincronizando...';
+    
+    if (!r.enabled) {
+      statusColor = 'var(--text-muted)';
+      statusText = 'Desativado';
+    } else if (r.lastStatus === 'KO') {
+      statusColor = '#ff5252';
+      statusText = 'Erro (KO)';
+    } else if (ipMatch && isOk) {
+      statusColor = '#0fa36b';
+      statusText = 'Online';
+    } else if (!ipMatch) {
+      statusColor = '#ff5252';
+      statusText = 'Offline (IP Divergente)';
+    }
+    
+    dnsHtml += '<div class="config-item" style="padding:10px">' + 
+               '<div style="width:24px;display:flex;align-items:center;font-size:18px;color:' + statusColor + '" title="' + statusText + '">●</div>' + 
+               '<div class="config-item-info">' + 
+                 '<div class="config-item-name">' + escapeHtml(r.domains) + '.duckdns.org ' + 
+                   '<span style="font-size:10px;font-weight:bold;color:' + statusColor + ';margin-left:8px;text-transform:uppercase">' + statusText + '</span>' +
+                 '</div>' + 
+                 '<div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text-muted)">' +
+                   '<span>IP Atual: <b style="color:var(--text-secondary)">' + (r.lastIp || '---') + '</b></span>' +
+                   '<span>IP Lido (DNS): <b style="color:' + (ipMatch ? 'var(--text-secondary)' : '#ff5252') + '">' + (r.lastDnsIp || '---') + '</b></span>' +
+                 '</div>' +
+               '</div>' + 
+               '<div class="config-item-actions">' + 
+                 '<label class="switch" style="transform:scale(0.8);margin-right:8px" title="Ativar/Desativar">' +
+                   '<input type="checkbox" class="cfg-toggle-dns" data-index="' + i + '" ' + (r.enabled ? 'checked' : '') + '>' +
+                   '<span class="slider"></span>' +
+                 '</label>' +
+                 '<button class="btn-icon cfg-test-dns" data-index="' + i + '" title="Testar este">' + (Icons.refresh || '↺') + '</button>' + 
+                 '<button class="btn-icon cfg-edit-dns" data-index="' + i + '" title="Editar">' + Icons.edit + '</button>' + 
+                 '<button class="btn-icon cfg-del-dns" data-index="' + i + '" title="Remover">' + Icons.trash + '</button>' + 
+               '</div>' + 
+             '</div>';
   }
   if (!records.length) {
-    ddnsHtml = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nenhum servidor Cloudflare configurado</div>';
+    dnsHtml = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nenhum domínio DuckDNS configurado</div>';
   }
 
-  return '<div class="config-form" style="border:none;margin-top:0">' + '<h3>Configurações do Servidor</h3>' + '<div class="form-row">' + '<div class="form-group" style="flex:2"><label>Nome do Servidor</label>' + '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="Web File Explorer">' + '</div>' + '<div class="form-group" style="flex:1"><label>Porta</label>' + '<input class="form-input" id="cfg-server-port" type="number" value="' + (serverConfig.port || 3000) + '" min="1" max="65535" placeholder="3000">' + '</div>' + '</div>' + '<div class="form-actions" style="margin-top:0;margin-bottom:16px"><button class="btn btn-primary btn-sm" id="server-config-save" type="button">Salvar Nome/Porta</button></div>' + 
+  var autoRefreshChecked = serverConfig.dnsAutoRefresh !== false ? 'checked' : '';
+
+  return '<div class="config-form" style="border:none;margin-top:0">' + 
+    '<h3>Configurações do Servidor</h3>' + 
+    '<div class="form-row">' + 
+      '<div class="form-group" style="flex:2"><label>Nome do Servidor</label>' + 
+        '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="Web File Explorer">' + 
+      '</div>' + 
+      '<div class="form-group" style="flex:1"><label>Porta</label>' + 
+        '<input class="form-input" id="cfg-server-port" type="number" value="' + (serverConfig.port || 3000) + '" min="1" max="65535" placeholder="3000">' + 
+      '</div>' + 
+    '</div>' + 
+    '<div class="form-actions" style="margin-top:0;margin-bottom:16px"><button class="btn btn-primary btn-sm" id="server-config-save" type="button">Salvar Nome/Porta</button></div>' + 
+    
+    '<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+      '<h3>DuckDNS (DNS Dinâmico)</h3>' +
+      '<div id="dns-public-ip-container" style="display:flex;align-items:center;gap:8px">' +
+        '<div id="dns-public-ip" style="font-size:12px;background:var(--accent-alpha);color:var(--accent);padding:4px 10px;border-radius:20px;font-weight:600">IP Atual: ...</div>' +
+        '<button class="btn-icon" id="dns-ip-refresh" title="Atualizar IP Atual" style="padding:4px">' + (Icons.refresh || '↺') + '</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="background:var(--bg-secondary);padding:12px;border-radius:8px;margin-bottom:16px;border:1px solid var(--border)">' +
+      // Update row
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<label class="switch"><input type="checkbox" id="cfg-dns-auto" ' + autoRefreshChecked + '><span class="slider"></span></label>' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:13px;font-weight:500">Atualização Automática (DuckDNS)</span>' +
+              '<span id="dns-update-ok" style="display:none;color:#0fa36b;font-size:12px;font-weight:600">✓ Atualizado</span>' +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted)">Próximo update em: <span id="dns-update-countdown" style="color:var(--accent);font-weight:600">--:--</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="font-size:12px;color:var(--text-muted)">Update (min)</label>' +
+          '<input type="number" id="cfg-dns-interval" class="form-input" style="width:60px;padding:4px 8px;background:var(--bg-primary)" value="' + (serverConfig.dnsInterval || 5) + '" min="1">' +
+        '</div>' +
+      '</div>' +
+      // Check row
+      '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<span style="font-size:12px;font-weight:500">Verificação de Status (Ping)</span>' +
+              '<span id="dns-check-ok" style="display:none;color:#0fa36b;font-size:12px;font-weight:600">✓ Verificado</span>' +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted)">Próximo check em: <span id="dns-check-countdown" style="color:var(--accent);font-weight:600">--:--</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<label style="font-size:12px;color:var(--text-muted)">Check (min)</label>' +
+          '<input type="number" id="cfg-dns-check-interval" class="form-input" style="width:60px;padding:4px 8px;background:var(--bg-primary)" value="' + (serverConfig.dnsCheckInterval || 1) + '" min="1">' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:flex-end;margin-top:8px">' +
+        '<button class="btn btn-primary btn-sm" id="dns-auto-save" type="button" style="padding:4px 12px;font-size:11px">Salvar Intervalos</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="dns-list" style="margin-bottom:16px">' + dnsHtml + '</div>' +
+    
+    '<div class="config-form" id="dns-form" style="background:var(--bg-primary);border-radius:8px;padding:16px;border:1px solid var(--border)">' +
+    '<h4 id="dns-form-title" style="margin-top:0">Configurar Domínio</h4>' +
+    '<input type="hidden" id="cfg-dns-index" value="-1">' +
+    '<div class="form-group"><label>Token (DuckDNS)</label>' +
+    '<input class="form-input" id="cfg-dns-token" type="password" placeholder="Seu Token">' +
+    '</div>' +
+    '<div class="form-group"><label>Domínio(s)</label>' +
+    '<input class="form-input" id="cfg-dns-domains" placeholder="ex: meudominio (sem .duckdns.org)">' +
+    '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Para múltiplos domínios, use vírgula (ex: dom1,dom2)</div>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:16px">' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+    '<label style="margin:0;font-size:13px">Ativo</label> <label class="switch"><input type="checkbox" id="cfg-dns-enabled" checked><span class="slider"></span></label>' +
+    '</div>' +
+    '</div>' +
+    '<div class="form-actions" style="margin-top:0">' + 
+    '<button class="btn btn-secondary btn-sm" id="dns-form-cancel" type="button">Limpar</button>' +
+    '<button class="btn btn-primary btn-sm" id="dns-form-save" type="button">Salvar DNS</button>' + 
+    '<button class="btn btn-sm" id="server-dns-test" type="button" style="margin-left:8px;background:var(--accent);color:#fff">Forçar Atualização Agora</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>' + 
+  '</div>' + 
   
-  '<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">' +
-  '<h3>Cloudflare DDNS (Multi-Servidor)</h3>' +
-  '<div id="ddns-list" style="margin-bottom:16px">' + ddnsHtml + '</div>' +
-  
-  '<div class="config-form" id="ddns-form" style="background:var(--bg-primary);border-radius:8px;padding:16px;border:1px solid var(--border)">' +
-  '<h4 id="ddns-form-title" style="margin-top:0">Adicionar Servidor</h4>' +
-  '<input type="hidden" id="cfg-ddns-index" value="-1">' +
-  '<div class="form-group"><label>API Token (DNS Edit)</label>' +
-  '<input class="form-input" id="cfg-ddns-token" type="password" placeholder="Sua API Token">' +
-  '</div>' +
-  '<div class="form-row">' +
-  '<div class="form-group" style="flex:1"><label>Zone ID</label>' +
-  '<input class="form-input" id="cfg-ddns-zoneid" placeholder="ID da Zona">' +
-  '</div>' +
-  '<div class="form-group" style="flex:1"><label>DNS Record (Domínio)</label>' +
-  '<input class="form-input" id="cfg-ddns-record" placeholder="ex: drive.meudominio.com">' +
-  '</div>' +
-  '</div>' +
-  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
-  '<div style="display:flex;align-items:center;gap:8px">' +
-  '<input type="checkbox" id="cfg-ddns-proxied" checked> <label for="cfg-ddns-proxied" style="margin:0;font-size:13px">Proxy Cloudflare</label>' +
-  '</div>' +
-  '<div style="display:flex;align-items:center;gap:8px">' +
-  '<label style="margin:0;font-size:13px">Ativo</label> <label class="switch"><input type="checkbox" id="cfg-ddns-enabled" checked><span class="slider"></span></label>' +
-  '</div>' +
-  '</div>' +
-  '<div class="form-actions" style="margin-top:0">' + 
-  '<button class="btn btn-secondary btn-sm" id="ddns-form-cancel" type="button">Limpar</button>' +
-  '<button class="btn btn-primary btn-sm" id="ddns-form-save" type="button">Salvar Servidor</button>' + 
-  '<button class="btn btn-sm" id="server-ddns-test" type="button" style="margin-left:8px">Testar Tudo agora</button>' +
-  '</div>' +
-  '</div>' +
-  '</div>' + '</div>' + 
-  
-  '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>' + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
+  '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + Icons.refresh + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
 }
 
 function getTimeDiff(dateStr) {

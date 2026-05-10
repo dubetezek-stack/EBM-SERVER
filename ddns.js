@@ -1,108 +1,139 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 
-let checkInterval = null;
+let statusInterval = null;
+
+function pingDomain(domain) {
+  return new Promise((resolve) => {
+    exec(`ping -n 1 -w 2000 ${domain}`, (err, stdout) => {
+      if (stdout) {
+        const match = stdout.match(/\[?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]?/);
+        if (match && match[1]) return resolve(match[1]);
+      }
+      resolve('---');
+    });
+  });
+}
 
 async function getPublicIP() {
-  return new Promise((resolve, reject) => {
-    https.get('https://api.ipify.org?format=json', (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data).ip);
-        } catch (e) {
-          reject(new Error('Falha ao obter IP público'));
-        }
+  const services = ['https://api.ipify.org', 'https://icanhazip.com', 'https://checkip.amazonaws.com'];
+  for (const url of services) {
+    try {
+      return await new Promise((resolve, reject) => {
+        const req = https.get(url, { timeout: 8000 }, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => {
+            const ip = data.trim();
+            if (ip && ip.includes('.')) resolve(ip);
+            else reject(new Error('IP inválido'));
+          });
+        });
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
       });
+    } catch (e) { /* try next */ }
+  }
+  return null;
+}
+
+function duckDnsUpdate(domain, token, ip) {
+  return new Promise((resolve, reject) => {
+    const url = `https://www.duckdns.org/update/${domain}/${token}/${ip}`;
+    if (global.addLog) global.addLog('SYSTEM', `Enviando: ${url}`, 'DDNS');
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 15000, rejectUnauthorized: false }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data.trim()));
     }).on('error', reject);
   });
 }
 
-async function cfRequest(zoneId, path, method, token, body) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.cloudflare.com',
-      port: 443,
-      path: `/client/v4/zones/${zoneId}${path}`,
-      method: method,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    };
-
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error('Resposta inválida do Cloudflare'));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    if (body) req.write(JSON.stringify(body));
-    req.end();
-  });
-}
-
-async function updateDDNS(config) {
-  const records = config.ddnsRecords || [];
+// STATUS ONLY — runs on configurable check interval (default 1 min). Just pings.
+async function checkStatus(config) {
+  const records = config.dnsRecords || [];
   if (!records.length) return;
 
+  let changed = false;
   try {
     const currentIp = await getPublicIP();
-    let changed = false;
+    
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i];
+      if (!rec.domains || !rec.enabled) continue;
+
+      const domainList = rec.domains.split(',').map(d => d.trim()).filter(Boolean);
+      const primaryDomain = domainList[0].includes('.') ? domainList[0] : domainList[0] + '.duckdns.org';
+
+      const dnsIp = await pingDomain(primaryDomain);
+      
+      records[i].lastDnsIp = dnsIp;
+      if (currentIp) {
+        records[i].lastIp = currentIp;
+        records[i].lastStatus = (currentIp === dnsIp) ? 'OK' : 'KO';
+      }
+      changed = true;
+    }
+
+    if (changed) saveRecords(records);
+  } catch (err) {
+    if (global.addLog) global.addLog('ERROR', `Erro no Ping/Status: ${err.message}`, 'DDNS');
+  }
+}
+
+// FULL UPDATE — runs on startup, manual trigger, or when enabling a record.
+async function updateDDNS(config, force = false) {
+  const records = config.dnsRecords || [];
+  if (!records.length) return { success: false, results: [] };
+
+  const results = [];
+  try {
+    const currentIp = await getPublicIP();
+    if (!currentIp) throw new Error('Não foi possível detectar o IP Público');
+    if (global.addLog) global.addLog('INFO', `IP Público: ${currentIp}`, 'DDNS');
 
     for (let i = 0; i < records.length; i++) {
-      const ddns = records[i];
-      if (!ddns.enabled || !ddns.token || !ddns.zoneId || !ddns.recordName) continue;
+      const rec = records[i];
+      if (!rec.token || !rec.domains) continue;
 
-      if (currentIp === ddns.lastIp) continue;
+      const domainList = rec.domains.split(',').map(d => d.trim()).filter(Boolean);
+      const primaryDomain = domainList[0].includes('.') ? domainList[0] : domainList[0] + '.duckdns.org';
 
-      try {
-        // 1. Find the record
-        const listRes = await cfRequest(ddns.zoneId, `/dns_records?name=${ddns.recordName}`, 'GET', ddns.token);
-        if (!listRes.success) throw new Error(listRes.errors?.[0]?.message || 'Falha ao listar records');
-        
-        const record = listRes.result?.[0];
-        if (!record) throw new Error(`DNS Record "${ddns.recordName}" não encontrado.`);
-
-        if (record.content === currentIp) {
-          records[i].lastIp = currentIp;
-          changed = true;
-          continue;
-        }
-
-        // 2. Update the record
-        const updateRes = await cfRequest(ddns.zoneId, `/dns_records/${record.id}`, 'PATCH', ddns.token, {
-          content: currentIp,
-          proxied: !!ddns.proxied
-        });
-
-        if (!updateRes.success) throw new Error(updateRes.errors?.[0]?.message || 'Falha ao atualizar');
-
-        console.log(`[DDNS] Atualizado: ${ddns.recordName} -> ${currentIp}`);
-        records[i].lastIp = currentIp;
-        changed = true;
-        if (global.addLog) global.addLog('INFO', `DDNS: ${ddns.recordName} atualizado para ${currentIp}`, 'System');
-      } catch (err) {
-        console.error(`[DDNS Error] ${ddns.recordName}:`, err.message);
-        if (global.addLog) global.addLog('ERROR', `DDNS (${ddns.recordName}): ${err.message}`, 'System');
+      if (!rec.enabled) {
+        records[i].lastStatus = 'OFF';
+        results.push({ domains: rec.domains, status: 'OFF' });
+        continue;
       }
+
+      const dnsIp = await pingDomain(primaryDomain);
+      records[i].lastDnsIp = dnsIp;
+      if (global.addLog) global.addLog('INFO', `ping ${primaryDomain} → ${dnsIp}`, 'DDNS');
+
+      let allOk = true;
+      for (const singleDomain of domainList) {
+        const cleanDomain = singleDomain.replace('.duckdns.org', '').replace('www.', '').trim();
+        try {
+          const response = await duckDnsUpdate(cleanDomain, rec.token, currentIp);
+          if (!response.startsWith('OK')) allOk = false;
+          if (global.addLog) global.addLog(response.startsWith('OK') ? 'SUCCESS' : 'ERROR', `DuckDNS → ${response}`, 'DDNS');
+        } catch (err) {
+          allOk = false;
+          if (global.addLog) global.addLog('ERROR', `Falha: ${err.message}`, 'DDNS');
+        }
+      }
+
+      records[i].lastIp = currentIp;
+      records[i].lastStatus = allOk ? 'OK' : 'KO';
+      results.push({ domains: rec.domains, status: records[i].lastStatus, ip: currentIp, dnsIp });
     }
 
-    if (changed) {
-      saveRecords(records);
-    }
-
+    saveRecords(records);
+    return { ip: results[0] && results[0].ip, results, success: true };
   } catch (err) {
-    console.error('[DDNS Error]', err.message);
+    if (global.addLog) global.addLog('ERROR', `Erro DDNS: ${err.message}`, 'DDNS');
+    return { success: false, error: err.message };
   }
 }
 
@@ -110,27 +141,65 @@ function saveRecords(records) {
   try {
     const configPath = path.join(__dirname, 'data', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    config.ddnsRecords = records;
+    config.dnsRecords = records;
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
   } catch (e) {}
 }
 
 function initDDNS() {
-  if (checkInterval) clearInterval(checkInterval);
+  if (statusInterval) {
+    clearInterval(statusInterval);
+    statusInterval = null;
+  }
+  if (global.updateInterval) {
+    clearInterval(global.updateInterval);
+    global.updateInterval = null;
+  }
 
-  const check = () => {
-    try {
-      const configPath = path.join(__dirname, 'data', 'config.json');
-      if (fs.existsSync(configPath)) {
-        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-        updateDDNS(config);
-      }
-    } catch (e) {}
-  };
+  const configPath = path.join(__dirname, 'data', 'config.json');
+  if (!fs.existsSync(configPath)) return;
 
-  // Check every 5 minutes
-  check();
-  checkInterval = setInterval(check, 300000);
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  
+  if (config.dnsAutoRefresh === false) {
+    if (global.addLog) global.addLog('SYSTEM', 'DDNS Automático desativado nas configurações', 'DDNS');
+    return;
+  }
+
+  const records = config.dnsRecords || [];
+  const hasEnabled = records.some(r => r.enabled);
+  if (!hasEnabled) {
+    if (global.addLog) global.addLog('SYSTEM', 'DDNS Suspenso: Nenhum domínio habilitado', 'DDNS');
+    return;
+  }
+
+  const checkMs = (parseInt(config.dnsCheckInterval) || 1) * 60000;
+  const updateMs = (parseInt(config.dnsInterval) || 5) * 60000;
+
+  global.nextCheckTime = Date.now() + checkMs;
+  global.nextUpdateTime = Date.now() + updateMs;
+
+  if (global.addLog) global.addLog('SYSTEM', `DDNS Iniciado — Check: ${config.dnsCheckInterval || 1}m | Update: ${config.dnsInterval || 5}m`, 'DDNS');
+
+  // On start: full update (get IP + DuckDNS update + ping)
+  updateDDNS(config).catch(() => {});
+
+  // On interval: status ping only
+  statusInterval = setInterval(() => {
+    global.nextCheckTime = Date.now() + checkMs;
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (cfg.dnsAutoRefresh === false) return;
+    checkStatus(cfg).catch(() => {});
+  }, checkMs);
+
+  // On interval: full update
+  global.updateInterval = setInterval(() => {
+    global.nextUpdateTime = Date.now() + updateMs;
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    if (cfg.dnsAutoRefresh === false) return;
+    updateDDNS(cfg).catch(() => {});
+  }, updateMs);
 }
 
-module.exports = { initDDNS, updateDDNS, getPublicIP };
+module.exports = { initDDNS, updateDDNS, checkStatus, getPublicIP };
+

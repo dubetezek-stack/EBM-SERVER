@@ -163,19 +163,37 @@ router.get('/server', (req, res) => {
   res.json({
     port: config.port || 3000,
     serverName: config.serverName || 'Web File Explorer',
-    ddnsRecords: config.ddnsRecords || []
+    dnsRecords: config.dnsRecords || [],
+    dnsAutoRefresh: config.dnsAutoRefresh !== false,
+    dnsInterval: config.dnsInterval || 5,
+    dnsCheckInterval: config.dnsCheckInterval || 1,
+    nextCheckTime: global.nextCheckTime || 0,
+    nextUpdateTime: global.nextUpdateTime || 0
   });
 });
 
+router.get('/server/ip', async (req, res) => {
+  try {
+    const { getPublicIP } = require('../ddns');
+    const ip = await getPublicIP();
+    res.json({ ip });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put('/server', (req, res) => {
-  const { port, serverName, ddnsRecords } = req.body;
+  const { port, serverName, dnsRecords, dnsAutoRefresh, dnsInterval, dnsCheckInterval } = req.body;
   const config = readJSON(configPath);
   if (port) config.port = parseInt(port);
   if (serverName !== undefined) config.serverName = serverName;
-  if (ddnsRecords) config.ddnsRecords = ddnsRecords;
+  if (dnsRecords) config.dnsRecords = dnsRecords;
+  if (dnsAutoRefresh !== undefined) config.dnsAutoRefresh = dnsAutoRefresh;
+  if (dnsInterval !== undefined) config.dnsInterval = parseInt(dnsInterval);
+  if (dnsCheckInterval !== undefined) config.dnsCheckInterval = parseInt(dnsCheckInterval);
   writeJSON(configPath, config);
   
-  // Re-initialize DDNS
+  // Re-initialize DNS service
   try {
     const { initDDNS } = require('../ddns');
     initDDNS();
@@ -184,17 +202,36 @@ router.put('/server', (req, res) => {
   res.json({
     port: config.port || 3000,
     serverName: config.serverName || 'Web File Explorer',
-    ddnsRecords: config.ddnsRecords || [],
+    dnsRecords: config.dnsRecords || [],
+    dnsAutoRefresh: config.dnsAutoRefresh !== false,
+    dnsInterval: config.dnsInterval || 5,
+    dnsCheckInterval: config.dnsCheckInterval || 1,
     needsRestart: port ? true : false
   });
 });
 
 router.post('/server/ddns/test', async (req, res) => {
+  const { index } = req.body;
   try {
     const { updateDDNS } = require('../ddns');
     const config = readJSON(configPath);
-    await updateDDNS(config);
-    res.json({ success: true });
+    
+    if (index !== undefined) {
+      // Test only one record
+      const records = config.dnsRecords || [];
+      const record = records[index];
+      if (!record) return res.status(404).json({ error: 'Registro não encontrado' });
+      if (!record.enabled) return res.status(400).json({ error: 'Ative o domínio primeiro para atualizar' });
+      
+      const { updateDDNS: updateSingle } = require('../ddns');
+      // We pass a fake config with only one record and force=true
+      const result = await updateSingle({ dnsRecords: [record] }, true);
+      res.json({ success: true, result });
+    } else {
+      // Test all with force=true
+      await updateDDNS(config, true);
+      res.json({ success: true });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

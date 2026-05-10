@@ -12,6 +12,7 @@ function addLog(level, msg, ip) {
   global.serverLogs.unshift({ time: new Date().toISOString(), level: level, msg: msg, ip: ip });
   if (global.serverLogs.length > 200) global.serverLogs.pop();
 }
+global.addLog = addLog;
 
 // Ensure data directory and default files exist
 const dataDir = path.join(__dirname, 'data');
