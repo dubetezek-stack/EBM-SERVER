@@ -211,3 +211,9 @@ function getTimeDiff(dateStr) {
   var days = Math.floor(hours / 24);
   return days + 'd atrás';
 }
+
+function renderSpeedTestConfig() {
+  return '<div style="width: 100%; height: 600px; max-height: 80vh; overflow: hidden; border-radius: var(--radius); background: #111;">' +
+         '<iframe src="/speedtest/index.html" style="width: 100%; height: 100%; border: none;"></iframe>' +
+         '</div>';
+}

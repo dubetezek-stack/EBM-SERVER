@@ -244,6 +244,10 @@ var App = /*#__PURE__*/function () {
       if (el) el.addEventListener('click', function () {
         self.showUpload();
       });
+      el = document.getElementById('btn-speedtest');
+      if (el) el.addEventListener('click', function () {
+        self.showSpeedTest();
+      });
       var searchInput = document.getElementById('search-input');
       if (searchInput) searchInput.addEventListener('input', function () {
         self.filterFiles(searchInput.value);
@@ -663,6 +667,25 @@ var App = /*#__PURE__*/function () {
       input.addEventListener('change', function () {
         if (input.files.length) _this6.doUpload(input.files);
       });
+    }
+  }, {
+    key: "showSpeedTest",
+    value: function showSpeedTest() {
+      var content = document.getElementById('content-area');
+      if (content) {
+        content.innerHTML = renderSpeedTestView();
+        var bc = document.getElementById('breadcrumb');
+        if (bc) {
+          bc.innerHTML = '<span class="breadcrumb-item" style="cursor:pointer" id="bc-home">Este Computador</span>' + '<span class="breadcrumb-separator">/</span>' + '<span class="breadcrumb-item active">Speed Test</span>';
+          var homeBc = document.getElementById('bc-home');
+          if (homeBc) {
+            var self = this;
+            homeBc.addEventListener('click', function () {
+              self.loadDrives();
+            });
+          }
+        }
+      }
     }
   }, {
     key: "doUpload",
@@ -1432,6 +1455,9 @@ App.prototype.loadConfigTab = function(tab) {
     }).catch(function(e) {
       if (body) body.innerHTML = '<p style="padding:20px;color:red">' + e.message + '</p>';
     });
+  } else if (tab === 'speedtest') {
+    var body = document.getElementById('config-body');
+    if (body) body.innerHTML = renderSpeedTestConfig();
   } else {
     return _originalLoadConfigTab.call(this, tab);
   }

@@ -39,6 +39,21 @@ const SERVER_NAME = config.serverName || 'Web File Explorer';
 // Middleware
 app.set('trust proxy', true);
 app.use(cors());
+
+// OpenSpeedTest Upload Endpoint (must be before body parsers to avoid memory overhead)
+app.post('/speedtest/upload', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  req.on('data', () => {}); // Discard data stream immediately
+  req.on('end', () => res.status(200).send('OK'));
+});
+app.options('/speedtest/upload', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.status(200).send();
+});
+
 app.use(express.json());
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/admin/logs')) {
