@@ -52,6 +52,12 @@ var App = /*#__PURE__*/function () {
       }).catch(function (e) {
         self.navigate('login');
       });
+      window.onpopstate = function (e) {
+        var modal = document.getElementById('preview-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+          modal.classList.add('hidden');
+        }
+      };
     }
   }, {
     key: "navigate",
@@ -531,6 +537,9 @@ var App = /*#__PURE__*/function () {
       var body = document.getElementById('preview-content');
       title.textContent = file.name;
       modal.classList.remove('hidden');
+      if (!history.state || !history.state.preview) {
+        history.pushState({ preview: true }, "");
+      }
       var previewUrl = "/api/files/preview?driveId=".concat(driveId, "&subpath=").concat(encodeURIComponent(subpath));
       var ext = (file.extension || '').toLowerCase();
       var imgExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
@@ -562,10 +571,10 @@ var App = /*#__PURE__*/function () {
 
       // Bind close
       document.getElementById('preview-close').onclick = function () {
-        return modal.classList.add('hidden');
+        if (history.state && history.state.preview) history.back();else modal.classList.add('hidden');
       };
       document.querySelector('.modal-backdrop').onclick = function () {
-        return modal.classList.add('hidden');
+        if (history.state && history.state.preview) history.back();else modal.classList.add('hidden');
       };
       document.getElementById('preview-download').onclick = function () {
         return _this5.downloadFile(driveId, subpath);

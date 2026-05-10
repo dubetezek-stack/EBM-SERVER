@@ -44,23 +44,43 @@ var API = {
       headers: headers
     };
     if (options.body) fetchOptions.body = options.body;
-    return fetch('/api' + url, fetchOptions).then(function (res) {
-      if (res.status === 401) {
-        self.clearToken();
-        if (window.app) window.app.navigate('login');
-        return null;
-      }
-      return res.text().then(function (text) {
-        var data = null;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {}
-        if (!res.ok) {
-          var errMsg = data && data.error ? data.error : 'Erro na requisição';
-          throw new Error(errMsg);
+    return new Promise(function(resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open(fetchOptions.method, '/api' + url, true);
+      
+      for (var k in fetchOptions.headers) {
+        if (fetchOptions.headers.hasOwnProperty(k)) {
+          xhr.setRequestHeader(k, fetchOptions.headers[k]);
         }
-        return data;
-      });
+      }
+      
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 401 && url !== '/auth/login') {
+            self.clearToken();
+            if (window.app) window.app.navigate('login');
+            return resolve(null);
+          }
+          
+          var data = null;
+          try {
+            data = JSON.parse(xhr.responseText);
+          } catch(e) {}
+          
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(data);
+          } else {
+            var errMsg = data && data.error ? data.error : 'Erro na requisição';
+            reject(new Error(errMsg));
+          }
+        }
+      };
+      
+      xhr.onerror = function() {
+        reject(new Error('Falha de rede'));
+      };
+      
+      xhr.send(fetchOptions.body || null);
     }).catch(function (e) {
       if (e.message && e.message.indexOf('Erro') < 0 && e.message.indexOf('requisição') < 0) {
         throw new Error('Erro de conexão com o servidor');
