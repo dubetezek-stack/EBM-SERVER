@@ -42,6 +42,11 @@ function updateActivity(token) {
   if (session) session.lastActivity = new Date().toISOString();
 }
 
+function isSessionActive(token) {
+  const id = getSessionId(token);
+  return sessions.has(id);
+}
+
 function removeSession(token) {
   const id = getSessionId(token);
   sessions.delete(id);
@@ -49,6 +54,10 @@ function removeSession(token) {
 
 function removeSessionById(sessionId) {
   sessions.delete(sessionId);
+}
+
+function clearAllSessions() {
+  sessions.clear();
 }
 
 function getActiveSessions() {
@@ -71,4 +80,4 @@ function parseDevice(ua) {
   return 'Outro';
 }
 
-module.exports = { addSession, updateActivity, removeSession, removeSessionById, getActiveSessions, getSessionId };
+module.exports = { addSession, updateActivity, removeSession, removeSessionById, clearAllSessions, getActiveSessions, getSessionId, isSessionActive };

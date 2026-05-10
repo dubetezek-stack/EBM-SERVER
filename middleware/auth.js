@@ -28,6 +28,10 @@ function authenticate(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
+    const { isSessionActive } = require('../sessions');
+    if (!isSessionActive(token)) {
+      return res.status(401).json({ error: 'Sessão encerrada remotamente' });
+    }
     const users = getUsers();
     const user = users.find(u => u.id === decoded.id);
     if (!user) {

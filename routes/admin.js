@@ -187,11 +187,15 @@ router.get('/logs', (req, res) => {
 // === SERVER CONTROL ===
 
 router.post('/server/shutdown', (req, res) => {
+  const { clearAllSessions } = require('../sessions');
+  clearAllSessions();
   res.json({ success: true, message: 'Servidor desligando...' });
   setTimeout(() => { process.exit(0); }, 500);
 });
 
 router.post('/server/restart', (req, res) => {
+  const { clearAllSessions } = require('../sessions');
+  clearAllSessions();
   res.json({ success: true, message: 'Servidor reiniciando...' });
   setTimeout(() => { process.exit(99); }, 500);
 });
