@@ -162,21 +162,42 @@ router.get('/server', (req, res) => {
   const config = readJSON(configPath);
   res.json({
     port: config.port || 3000,
-    serverName: config.serverName || 'Web File Explorer'
+    serverName: config.serverName || 'Web File Explorer',
+    ddnsRecords: config.ddnsRecords || []
   });
 });
 
 router.put('/server', (req, res) => {
-  const { port, serverName } = req.body;
+  const { port, serverName, ddnsRecords } = req.body;
   const config = readJSON(configPath);
   if (port) config.port = parseInt(port);
   if (serverName !== undefined) config.serverName = serverName;
+  if (ddnsRecords) config.ddnsRecords = ddnsRecords;
   writeJSON(configPath, config);
+  
+  // Re-initialize DDNS
+  try {
+    const { initDDNS } = require('../ddns');
+    initDDNS();
+  } catch(e) {}
+
   res.json({
     port: config.port || 3000,
     serverName: config.serverName || 'Web File Explorer',
+    ddnsRecords: config.ddnsRecords || [],
     needsRestart: port ? true : false
   });
+});
+
+router.post('/server/ddns/test', async (req, res) => {
+  try {
+    const { updateDDNS } = require('../ddns');
+    const config = readJSON(configPath);
+    await updateDDNS(config);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // === LOGS ===

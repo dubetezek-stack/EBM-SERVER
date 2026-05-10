@@ -48,3 +48,7 @@ function renderFileList(files, driveId, subpath) {
   html += '</tbody></table></div>';
   return html;
 }
+
+function renderUploadZone() {
+  return '<div class="upload-zone" id="upload-zone">' + Icons.upload + '<p>Arraste arquivos aqui ou clique para fazer upload</p>' + '<input type="file" id="upload-input" multiple style="display:none">' + '</div>';
+}

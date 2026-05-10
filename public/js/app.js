@@ -1089,39 +1089,121 @@ var App = /*#__PURE__*/function () {
   }, {
     key: "bindServerConfig",
     value: function bindServerConfig() {
+      var self = this;
       var saveBtn = document.getElementById('server-config-save');
       if (saveBtn) {
-        saveBtn.addEventListener('click', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-          var name, port, res, _t11;
-          return _regenerator().w(function (_context11) {
-            while (1) switch (_context11.p = _context11.n) {
-              case 0:
-                name = document.getElementById('cfg-server-name').value.trim();
-                port = document.getElementById('cfg-server-port').value;
-                _context11.p = 1;
-                _context11.n = 2;
-                return API.put('/admin/server', {
-                  serverName: name,
-                  port: parseInt(port)
-                });
-              case 2:
-                res = _context11.v;
-                showToast('Configurações salvas!', 'success');
-                if (res && res.needsRestart) {
-                  showToast('Reinicie o servidor para aplicar a nova porta', 'warning');
-                }
-                _context11.n = 4;
-                break;
-              case 3:
-                _context11.p = 3;
-                _t11 = _context11.v;
-                showToast(_t11.message, 'error');
-              case 4:
-                return _context11.a(2);
+        saveBtn.onclick = function () {
+          var name = document.getElementById('cfg-server-name').value.trim();
+          var port = document.getElementById('cfg-server-port').value;
+          API.put('/admin/server', {
+            serverName: name,
+            port: parseInt(port)
+          }).then(function (res) {
+            showToast('Configurações salvas!', 'success');
+            if (res && res.needsRestart) showToast('Reinicie para aplicar nova porta', 'warning');
+          })["catch"](function (e) {
+            return showToast(e.message, 'error');
+          });
+        };
+      } // DDNS Management
+
+      var ddnsFormSave = document.getElementById('ddns-form-save');
+
+      if (ddnsFormSave) {
+        ddnsFormSave.onclick = function () {
+          var index = parseInt(document.getElementById('cfg-ddns-index').value);
+          var record = {
+            token: document.getElementById('cfg-ddns-token').value.trim(),
+            zoneId: document.getElementById('cfg-ddns-zoneid').value.trim(),
+            recordName: document.getElementById('cfg-ddns-record').value.trim(),
+            proxied: document.getElementById('cfg-ddns-proxied').checked,
+            enabled: document.getElementById('cfg-ddns-enabled').checked
+          };
+
+          if (!record.token || !record.zoneId || !record.recordName) {
+            return showToast('Preencha Token, Zone ID e Domínio', 'error');
+          }
+
+          API.get('/admin/server').then(function (cfg) {
+            var records = cfg.ddnsRecords || [];
+
+            if (index === -1) {
+              records.push(record);
+            } else {
+              record.lastIp = records[index].lastIp; // Preserve last IP
+              records[index] = record;
             }
-          }, _callee11, null, [[1, 3]]);
-        })));
+
+            return API.put('/admin/server', {
+              ddnsRecords: records
+            });
+          }).then(function () {
+            showToast('Servidor DDNS salvo!', 'success');
+            self.loadConfigTab('server');
+          })["catch"](function (e) {
+            return showToast(e.message, 'error');
+          });
+        };
       }
+
+      document.getElementById('ddns-form-cancel').onclick = function () {
+        document.getElementById('cfg-ddns-index').value = "-1";
+        document.getElementById('cfg-ddns-token').value = "";
+        document.getElementById('cfg-ddns-zoneid').value = "";
+        document.getElementById('cfg-ddns-record').value = "";
+        document.getElementById('ddns-form-title').textContent = "Adicionar Servidor";
+      };
+
+      document.querySelectorAll('.cfg-edit-ddns').forEach(function (btn) {
+        btn.onclick = function () {
+          var index = parseInt(btn.dataset.index);
+          API.get('/admin/server').then(function (cfg) {
+            var r = cfg.ddnsRecords[index];
+            document.getElementById('cfg-ddns-index').value = index;
+            document.getElementById('cfg-ddns-token').value = r.token;
+            document.getElementById('cfg-ddns-zoneid').value = r.zoneId;
+            document.getElementById('cfg-ddns-record').value = r.recordName;
+            document.getElementById('cfg-ddns-proxied').checked = r.proxied;
+            document.getElementById('cfg-ddns-enabled').checked = r.enabled;
+            document.getElementById('ddns-form-title').textContent = "Editar Servidor";
+            document.getElementById('ddns-form').scrollIntoView();
+          });
+        };
+      });
+      document.querySelectorAll('.cfg-del-ddns').forEach(function (btn) {
+        btn.onclick = function () {
+          if (!confirm('Remover este servidor DDNS?')) return;
+          var index = parseInt(btn.dataset.index);
+          API.get('/admin/server').then(function (cfg) {
+            var records = cfg.ddnsRecords || [];
+            records.splice(index, 1);
+            return API.put('/admin/server', {
+              ddnsRecords: records
+            });
+          }).then(function () {
+            showToast('Servidor removido', 'success');
+            self.loadConfigTab('server');
+          });
+        };
+      });
+
+      var testBtn = document.getElementById('server-ddns-test');
+      if (testBtn) {
+        testBtn.onclick = function () {
+          testBtn.disabled = true;
+          testBtn.textContent = 'Testando...';
+          API.post('/admin/server/ddns/test').then(function () {
+            showToast('DDNS Atualizado com sucesso!', 'success');
+            self.loadConfigTab('server');
+          })["catch"](function (e) {
+            return showToast(e.message, 'error');
+          })["finally"](function () {
+            testBtn.disabled = false;
+            testBtn.textContent = 'Testar Tudo agora';
+          });
+        };
+      }
+
       var restartBtn = document.getElementById('server-restart');
       if (restartBtn) {
         restartBtn.addEventListener('click', function () {

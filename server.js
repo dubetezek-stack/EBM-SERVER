@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const os = require('os');
+const { initDDNS } = require('./ddns');
 
 const app = express();
 
@@ -19,7 +20,8 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const configPath = path.join(dataDir, 'config.json');
 if (!fs.existsSync(configPath)) {
   fs.writeFileSync(configPath, JSON.stringify({
-    drives: [], jwtSecret: '', port: 3000, serverName: 'Web File Explorer'
+    drives: [], jwtSecret: '', port: 3000, serverName: 'Web File Explorer',
+    ddns: { enabled: false, provider: 'cloudflare', token: '', zoneId: '', recordName: '', proxied: true, lastIp: '' }
   }, null, 2));
 }
 
@@ -80,5 +82,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  Acesse pelo celular usando o endereco de Rede');
   console.log('  ============================================');
   console.log('');
+
+  initDDNS();
 });
 

@@ -3,11 +3,14 @@
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
 // Config Panel Renderer
 var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
+
 function renderConfigPanel() {
   return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
 }
+
 function renderDrivesConfig(drives) {
   var html = '';
   var _iterator = _createForOfIteratorHelper(drives),
@@ -27,6 +30,7 @@ function renderDrivesConfig(drives) {
   }).join(''), "\n    </div></div>\n    <div class=\"form-actions\">\n      <button class=\"btn btn-secondary btn-sm\" id=\"drive-form-cancel\" type=\"button\">Cancelar</button>\n      <button class=\"btn btn-primary btn-sm\" id=\"drive-form-save\" type=\"button\">Salvar</button>\n    </div>\n  </div>");
   return html;
 }
+
 function renderUsersConfig(users) {
   var html = '';
   for (var i = 0; i < users.length; i++) {
@@ -38,6 +42,7 @@ function renderUsersConfig(users) {
   html += "<div class=\"config-form\" id=\"user-form\">\n    <h3 id=\"user-form-title\">Adicionar Usu\xE1rio</h3>\n    <input type=\"hidden\" id=\"user-edit-id\">\n    <div class=\"form-group\"><label>Nome de Usu\xE1rio</label><input class=\"form-input\" id=\"cfg-user-name\" placeholder=\"nome\"></div>\n    <div class=\"form-group\"><label>Senha</label><input class=\"form-input\" id=\"cfg-user-pass\" type=\"password\" placeholder=\"\u2022\u2022\u2022\u2022\u2022\u2022\"></div>\n    <div class=\"form-group\"><label>Tipo</label>\n      <select class=\"form-input\" id=\"cfg-user-role\">\n        <option value=\"user\">Usu\xE1rio (somente leitura)</option>\n        <option value=\"master\">Master (ler + enviar)</option>\n        <option value=\"admin\">Administrador (tudo)</option>\n      </select>\n    </div>\n    <div class=\"form-actions\">\n      <button class=\"btn btn-secondary btn-sm\" id=\"user-form-cancel\" type=\"button\">Cancelar</button>\n      <button class=\"btn btn-primary btn-sm\" id=\"user-form-save\" type=\"button\">Salvar</button>\n    </div>\n  </div>";
   return html;
 }
+
 function renderSessionsConfig(sessions) {
   if (!sessions || !sessions.length) {
     return '<div style="text-align:center;padding:40px;color:var(--text-muted)"><p>Nenhuma sessão ativa</p></div>';
@@ -53,9 +58,58 @@ function renderSessionsConfig(sessions) {
   }
   return html;
 }
+
 function renderServerConfig(serverConfig) {
-  return '<div class="config-form" style="border:none;margin-top:0">' + '<h3>Configurações do Servidor</h3>' + '<div class="form-group"><label>Nome do Servidor</label>' + '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="Web File Explorer">' + '</div>' + '<div class="form-group"><label>Porta</label>' + '<input class="form-input" id="cfg-server-port" type="number" value="' + (serverConfig.port || 3000) + '" min="1" max="65535" placeholder="3000">' + '<div style="font-size:11px;color:var(--text-muted);margin-top:4px">⚠ Alterar a porta requer reiniciar o servidor</div>' + '</div>' + '<div class="form-actions">' + '<button class="btn btn-primary btn-sm" id="server-config-save" type="button">Salvar</button>' + '</div>' + '</div>' + '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>' + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Reiniciar aplica mudanças de porta. Desligar encerra o servidor completamente.</div>' + '</div>';
+  var ddnsHtml = '';
+  var records = serverConfig.ddnsRecords || [];
+  for (var i = 0; i < records.length; i++) {
+    var r = records[i];
+    var statusIcon = r.enabled ? '<span style="color:#0fa36b">●</span>' : '<span style="color:var(--text-muted)">○</span>';
+    ddnsHtml += '<div class="config-item" style="padding:10px">' + '<div style="width:24px;display:flex;align-items:center;font-size:18px">' + statusIcon + '</div>' + '<div class="config-item-info">' + '<div class="config-item-name">' + escapeHtml(r.recordName) + '</div>' + '<div class="config-item-detail">IP: ' + (r.lastIp || 'Aguardando...') + '</div>' + '</div>' + '<div class="config-item-actions">' + '<button class="btn-icon cfg-edit-ddns" data-index="' + i + '" title="Editar">' + Icons.edit + '</button>' + '<button class="btn-icon cfg-del-ddns" data-index="' + i + '" title="Remover">' + Icons.trash + '</button>' + '</div>' + '</div>';
+  }
+  if (!records.length) {
+    ddnsHtml = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nenhum servidor Cloudflare configurado</div>';
+  }
+
+  return '<div class="config-form" style="border:none;margin-top:0">' + '<h3>Configurações do Servidor</h3>' + '<div class="form-row">' + '<div class="form-group" style="flex:2"><label>Nome do Servidor</label>' + '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="Web File Explorer">' + '</div>' + '<div class="form-group" style="flex:1"><label>Porta</label>' + '<input class="form-input" id="cfg-server-port" type="number" value="' + (serverConfig.port || 3000) + '" min="1" max="65535" placeholder="3000">' + '</div>' + '</div>' + '<div class="form-actions" style="margin-top:0;margin-bottom:16px"><button class="btn btn-primary btn-sm" id="server-config-save" type="button">Salvar Nome/Porta</button></div>' + 
+  
+  '<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">' +
+  '<h3>Cloudflare DDNS (Multi-Servidor)</h3>' +
+  '<div id="ddns-list" style="margin-bottom:16px">' + ddnsHtml + '</div>' +
+  
+  '<div class="config-form" id="ddns-form" style="background:var(--bg-primary);border-radius:8px;padding:16px;border:1px solid var(--border)">' +
+  '<h4 id="ddns-form-title" style="margin-top:0">Adicionar Servidor</h4>' +
+  '<input type="hidden" id="cfg-ddns-index" value="-1">' +
+  '<div class="form-group"><label>API Token (DNS Edit)</label>' +
+  '<input class="form-input" id="cfg-ddns-token" type="password" placeholder="Sua API Token">' +
+  '</div>' +
+  '<div class="form-row">' +
+  '<div class="form-group" style="flex:1"><label>Zone ID</label>' +
+  '<input class="form-input" id="cfg-ddns-zoneid" placeholder="ID da Zona">' +
+  '</div>' +
+  '<div class="form-group" style="flex:1"><label>DNS Record (Domínio)</label>' +
+  '<input class="form-input" id="cfg-ddns-record" placeholder="ex: drive.meudominio.com">' +
+  '</div>' +
+  '</div>' +
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+  '<div style="display:flex;align-items:center;gap:8px">' +
+  '<input type="checkbox" id="cfg-ddns-proxied" checked> <label for="cfg-ddns-proxied" style="margin:0;font-size:13px">Proxy Cloudflare</label>' +
+  '</div>' +
+  '<div style="display:flex;align-items:center;gap:8px">' +
+  '<label style="margin:0;font-size:13px">Ativo</label> <label class="switch"><input type="checkbox" id="cfg-ddns-enabled" checked><span class="slider"></span></label>' +
+  '</div>' +
+  '</div>' +
+  '<div class="form-actions" style="margin-top:0">' + 
+  '<button class="btn btn-secondary btn-sm" id="ddns-form-cancel" type="button">Limpar</button>' +
+  '<button class="btn btn-primary btn-sm" id="ddns-form-save" type="button">Salvar Servidor</button>' + 
+  '<button class="btn btn-sm" id="server-ddns-test" type="button" style="margin-left:8px">Testar Tudo agora</button>' +
+  '</div>' +
+  '</div>' +
+  '</div>' + '</div>' + 
+  
+  '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>' + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
 }
+
 function getTimeDiff(dateStr) {
   var diff = Date.now() - new Date(dateStr).getTime();
   var mins = Math.floor(diff / 60000);
