@@ -198,7 +198,14 @@ function renderServerConfig(serverConfig) {
     '</div>' + 
   '</div>' + 
   
-  '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + Icons.refresh + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
+  '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + 
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+    '<div style="display:flex;align-items:center;gap:8px">' +
+      '<span>Iniciar com o Windows</span>' +
+      '<label class="switch"><input type="checkbox" id="cfg-server-startup"><span class="slider"></span></label>' +
+    '</div>' +
+  '</div>' +
+  '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + Icons.refresh + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
 }
 
 function getTimeDiff(dateStr) {

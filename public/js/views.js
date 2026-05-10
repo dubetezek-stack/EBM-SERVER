@@ -23,15 +23,30 @@ function renderDrives(drives) {
     var d = drives[i];
     var usedPct = 0;
     var spaceText = '';
-    if (d.totalSize && d.freeSpace != null) {
-      usedPct = Math.round((d.totalSize - d.freeSpace) / d.totalSize * 100);
-      spaceText = formatSize(d.freeSpace) + ' livre(s) de ' + formatSize(d.totalSize);
-    } else if (d.error) {
+    if (d.disk && d.disk.total) {
+      var total = d.disk.total;
+      var free = d.disk.free;
+      usedPct = Math.round((total - free) / total * 100);
+      spaceText = formatSize(free) + ' livre(s) de ' + formatSize(total);
+    } else if (!d.accessible) {
       spaceText = 'Indisponível';
     }
     var barColor = usedPct > 90 ? 'var(--danger)' : d.color || 'var(--accent-blue)';
-    var offlineClass = d.error ? ' drive-offline' : '';
-    html += '<div class="drive-card' + offlineClass + '" data-drive-id="' + d.id + '">' + '<div class="drive-icon">' + Icons.drive(d.color || '#0078d4') + '</div>' + '<div class="drive-info">' + '<div class="drive-name">' + escapeHtml(d.name) + '</div>' + '<div class="drive-bar"><div class="drive-bar-fill" style="width:' + usedPct + '%;background:' + barColor + '"></div></div>' + '<div class="drive-space">' + spaceText + '</div>' + '</div>' + '</div>';
+    var offlineClass = !d.accessible ? ' drive-offline' : '';
+    var displayPath = d.path || '';
+    var driveMatch = displayPath.match(/^([a-zA-Z]):\\?$/);
+    if (driveMatch) {
+      displayPath = driveMatch[1].toUpperCase() + ':';
+    }
+    html += '<div class="drive-card' + offlineClass + '" data-drive-id="' + d.id + '" title="' + escapeHtml(d.path) + '">' + 
+            '<div class="drive-icon">' + Icons.drive(d.color || '#0078d4') + '</div>' + 
+            '<div class="drive-info">' + 
+              '<div class="drive-name" style="margin-bottom:2px">' + escapeHtml(d.name) + '</div>' + 
+              '<div class="drive-path-info" style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">(' + escapeHtml(displayPath) + ')</div>' + 
+              '<div class="drive-bar"><div class="drive-bar-fill" style="width:' + usedPct + '%;background:' + barColor + '"></div></div>' + 
+              '<div class="drive-space" style="font-size:12px;color:var(--text-secondary);margin-top:2px">' + spaceText + '</div>' + 
+            '</div>' + 
+          '</div>';
   }
   html += '</div></div>';
   return html;

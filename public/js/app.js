@@ -1128,6 +1128,23 @@ var App = /*#__PURE__*/function () {
       var ipRefreshBtn = document.getElementById('dns-ip-refresh');
       if (ipRefreshBtn) ipRefreshBtn.onclick = updatePublicIPDisplay;
 
+      // Startup Control
+      var startupCheck = document.getElementById('cfg-server-startup');
+      if (startupCheck) {
+        API.get('/admin/server/startup').then(function(res) {
+          startupCheck.checked = res.enabled;
+        });
+        startupCheck.onchange = function() {
+          API.post('/admin/server/startup', { enabled: startupCheck.checked })
+            .then(function(res) {
+              showToast('Configuração de inicialização atualizada', 'success');
+            })["catch"](function(err) {
+              showToast(err.message, 'error');
+              startupCheck.checked = !startupCheck.checked;
+            });
+        };
+      }
+
       if (!isRefresh) {
         // Countdown timers + green flash indicators
         if (this.dnsPolling) clearInterval(this.dnsPolling);

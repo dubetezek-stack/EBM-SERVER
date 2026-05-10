@@ -259,4 +259,50 @@ router.post('/server/restart', (req, res) => {
   setTimeout(() => { process.exit(99); }, 500);
 });
 
+// === STARTUP CONTROL ===
+router.get('/server/startup', (req, res) => {
+  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'WebFileExplorer.lnk');
+  res.json({ enabled: fs.existsSync(startupPath) });
+});
+
+router.post('/server/startup', (req, res) => {
+  const { enabled } = req.body;
+  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'WebFileExplorer.lnk');
+  
+  if (enabled) {
+    try {
+      const targetPath = process.execPath; // node.exe
+      const scriptPath = path.resolve(__dirname, '..', 'server.js');
+      const workingDir = path.resolve(__dirname, '..');
+      
+      // Create a VBS script to create the shortcut
+      const vbsPath = path.join(os.tmpdir(), 'create_shortcut.vbs');
+      const vbsContent = `
+        Set WshShell = WScript.CreateObject("WScript.Shell")
+        Set oShellLink = WshShell.CreateShortcut("${startupPath.replace(/\\/g, '\\\\')}")
+        oShellLink.TargetPath = "${targetPath.replace(/\\/g, '\\\\')}"
+        oShellLink.Arguments = "${scriptPath.replace(/\\/g, '\\\\')}"
+        oShellLink.WorkingDirectory = "${workingDir.replace(/\\/g, '\\\\')}"
+        oShellLink.WindowStyle = 7
+        oShellLink.Save
+      `;
+      fs.writeFileSync(vbsPath, vbsContent, 'utf16le');
+      require('child_process').execSync(`cscript //nologo "${vbsPath}"`);
+      fs.unlinkSync(vbsPath);
+      res.json({ success: true, enabled: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao criar atalho: ' + err.message });
+    }
+  } else {
+    try {
+      if (fs.existsSync(startupPath)) {
+        fs.unlinkSync(startupPath);
+      }
+      res.json({ success: true, enabled: false });
+    } catch (err) {
+      res.status(500).json({ error: 'Erro ao remover atalho: ' + err.message });
+    }
+  }
+});
+
 module.exports = router;
