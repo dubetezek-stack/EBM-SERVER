@@ -5,10 +5,11 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { authenticate } = require('../middleware/auth');
 const { addSession } = require('../sessions');
 
-const dataDir = path.join(__dirname, '..', 'data');
+const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 

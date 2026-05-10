@@ -1,6 +1,7 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { exec } = require('child_process');
 
 let statusInterval = null;
@@ -139,7 +140,7 @@ async function updateDDNS(config, force = false) {
 
 function saveRecords(records) {
   try {
-    const configPath = path.join(__dirname, 'data', 'config.json');
+    const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     config.dnsRecords = records;
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -156,7 +157,7 @@ function initDDNS() {
     global.updateInterval = null;
   }
 
-  const configPath = path.join(__dirname, 'data', 'config.json');
+  const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
   if (!fs.existsSync(configPath)) return;
 
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));

@@ -15,7 +15,7 @@ function addLog(level, msg, ip) {
 global.addLog = addLog;
 
 // Ensure data directory and default files exist
-const dataDir = path.join(__dirname, 'data');
+const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const configPath = path.join(dataDir, 'config.json');

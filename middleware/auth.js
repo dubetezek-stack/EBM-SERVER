@@ -1,9 +1,10 @@
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { updateActivity } = require('../sessions');
 
-const dataDir = path.join(__dirname, '..', 'data');
+const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
