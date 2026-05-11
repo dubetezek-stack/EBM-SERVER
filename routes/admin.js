@@ -12,8 +12,7 @@ const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
-function readJSON(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
-function writeJSON(p, d) { fs.writeFileSync(p, JSON.stringify(d, null, 2)); }
+const { readJSON, writeJSON } = require('../utils/storage');
 
 router.use(authenticate, requireAdmin);
 
@@ -25,7 +24,7 @@ router.get('/drives', (req, res) => {
 });
 
 router.post('/drives', (req, res) => {
-  const { name, path: drivePath, color } = req.body;
+  const { name, path: drivePath, color, permissions } = req.body;
   if (!name || !drivePath) {
     return res.status(400).json({ error: 'Nome e caminho são obrigatórios' });
   }
@@ -40,6 +39,10 @@ router.post('/drives', (req, res) => {
     name,
     path: drivePath,
     color: color || '#0078d4',
+    permissions: permissions || { 
+      master: { read: true, upload: true, delete: false },
+      user: { read: true, upload: false, delete: false }
+    },
     createdAt: new Date().toISOString()
   };
 
@@ -49,7 +52,7 @@ router.post('/drives', (req, res) => {
 });
 
 router.put('/drives/:id', (req, res) => {
-  const { name, path: drivePath, color } = req.body;
+  const { name, path: drivePath, color, permissions } = req.body;
   const config = readJSON(configPath);
   const idx = config.drives.findIndex(d => d.id === req.params.id);
 
@@ -64,6 +67,7 @@ router.put('/drives/:id', (req, res) => {
   if (name) config.drives[idx].name = name;
   if (drivePath) config.drives[idx].path = drivePath;
   if (color) config.drives[idx].color = color;
+  if (permissions) config.drives[idx].permissions = permissions;
 
   writeJSON(configPath, config);
   res.json(config.drives[idx]);

@@ -80,4 +80,9 @@ function parseDevice(ua) {
   return 'Outro';
 }
 
-module.exports = { addSession, updateActivity, removeSession, removeSessionById, clearAllSessions, getActiveSessions, getSessionId, isSessionActive };
+function getSession(token) {
+  const id = getSessionId(token);
+  return sessions.get(id);
+}
+
+module.exports = { addSession, updateActivity, removeSession, removeSessionById, clearAllSessions, getActiveSessions, getSessionId, isSessionActive, getSession };

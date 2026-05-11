@@ -13,8 +13,7 @@ const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
-function readJSON(p) { return JSON.parse(fs.readFileSync(p, 'utf8')); }
-function writeJSON(p, d) { fs.writeFileSync(p, JSON.stringify(d, null, 2)); }
+const { readJSON, writeJSON } = require('../utils/storage');
 
 // Check if admin exists
 router.get('/status', (req, res) => {
@@ -58,8 +57,23 @@ router.post('/setup', async (req, res) => {
   writeJSON(configPath, config);
 
   const token = jwt.sign({ id: admin.id }, jwtSecret, { expiresIn: '7d' });
-  addSession(token, { userId: admin.id, username: admin.username, role: admin.role, ip: req.ip, userAgent: req.headers['user-agent'] });
-  res.json({ token, user: { id: admin.id, username: admin.username, role: admin.role } });
+  const sessionData = { userId: admin.id, username: admin.username, role: admin.role, ip: req.ip, userAgent: req.headers['user-agent'] };
+  addSession(token, sessionData);
+  
+  // Get the session we just created to have the MAC
+  const { getSession } = require('../sessions');
+  const session = getSession(token);
+  
+  res.json({ 
+    token, 
+    user: { 
+      id: admin.id, 
+      username: admin.username, 
+      role: admin.role,
+      ip: session ? session.ip : (req.ip || '').replace('::ffff:', ''),
+      mac: session ? session.mac : 'N/A'
+    } 
+  });
 });
 
 // Login
@@ -82,13 +96,34 @@ router.post('/login', async (req, res) => {
 
   const config = readJSON(configPath);
   const token = jwt.sign({ id: user.id }, config.jwtSecret, { expiresIn: '7d' });
-  addSession(token, { userId: user.id, username: user.username, role: user.role, ip: req.ip, userAgent: req.headers['user-agent'] });
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  const sessionData = { userId: user.id, username: user.username, role: user.role, ip: req.ip, userAgent: req.headers['user-agent'] };
+  addSession(token, sessionData);
+
+  // Get the session we just created to have the MAC
+  const { getSession } = require('../sessions');
+  const session = getSession(token);
+
+  res.json({ 
+    token, 
+    user: { 
+      id: user.id, 
+      username: user.username, 
+      role: user.role,
+      ip: session ? session.ip : (req.ip || '').replace('::ffff:', ''),
+      mac: session ? session.mac : 'N/A'
+    } 
+  });
 });
 
 // Current user info
 router.get('/me', authenticate, (req, res) => {
-  res.json(req.user);
+  res.json({ 
+    id: req.user.id, 
+    username: req.user.username, 
+    role: req.user.role,
+    ip: req.user.ip || '',
+    mac: req.user.mac || 'N/A'
+  });
 });
 
 module.exports = router;

@@ -196,7 +196,10 @@ var App = /*#__PURE__*/function () {
                 if (res && res.token) {
                   API.setToken(res.token);
                   window.app.user = res.user;
-                  window.app.navigate('explorer');
+                  // Small delay to ensure state is fully propagated before rendering
+                  setTimeout(function() {
+                    window.app.navigate('explorer');
+                  }, 50);
                 } else {
                   errEl.textContent = 'Erro: servidor não retornou token de acesso';
                   errEl.classList.add('visible');
@@ -428,7 +431,23 @@ var App = /*#__PURE__*/function () {
             case 3:
               data = _context4.v;
               this._driveName = data.driveName;
+              this.currentDrivePermissions = data.permissions; // Store permissions
               this.updateBreadcrumb();
+              
+              // Toggle upload button visibility based on permissions
+              var uploadBtn = document.getElementById('btn-upload');
+              if (uploadBtn) {
+                var role = this.user.role;
+                var canUpload = role === 'admin';
+                if (!canUpload && data.permissions) {
+                  if (role === 'master') canUpload = !!(data.permissions.master && data.permissions.master.upload);
+                  else if (role === 'user') canUpload = !!(data.permissions.user && data.permissions.user.upload);
+                } else if (!canUpload && !data.permissions) {
+                  canUpload = role === 'master'; // Fallback
+                }
+                uploadBtn.style.display = canUpload ? 'flex' : 'none';
+              }
+
               this.allFiles = data.files;
               this.sortAndRender(data);
               _context4.n = 5;
@@ -482,7 +501,7 @@ var App = /*#__PURE__*/function () {
       };
       var content = document.getElementById('content-area');
       if (!content) return;
-      content.innerHTML = renderFileList(files, this.currentDriveId, this.currentSubpath);
+      content.innerHTML = renderFileList(files, this.currentDriveId, this.currentSubpath, this.currentDrivePermissions);
       this.bindFileList();
     }
   }, {
@@ -1091,14 +1110,25 @@ var App = /*#__PURE__*/function () {
       });
       document.querySelectorAll('.cfg-edit-drive').forEach(function (btn) {
         btn.addEventListener('click', function () {
-          var d = drives.find(function (x) {
-            return x.id === btn.dataset.id;
-          });
+          var id = btn.dataset.id;
+          var d = drives.find(function (x) { return x.id === id; });
           if (!d) return;
           document.getElementById('drive-edit-id').value = d.id;
           document.getElementById('cfg-drive-name').value = d.name;
           document.getElementById('cfg-drive-path').value = d.path;
           document.getElementById('drive-form-title').textContent = 'Editar Drive';
+          
+          var p = d.permissions || { 
+            master: { read: true, upload: true, delete: false },
+            user: { read: true, upload: false, delete: false }
+          };
+          document.getElementById('p-m-read').checked = !!(p.master && p.master.read);
+          document.getElementById('p-m-upload').checked = !!(p.master && p.master.upload);
+          document.getElementById('p-m-delete').checked = !!(p.master && p.master.delete);
+          document.getElementById('p-u-read').checked = !!(p.user && p.user.read);
+          document.getElementById('p-u-upload').checked = !!(p.user && p.user.upload);
+          document.getElementById('p-u-delete').checked = !!(p.user && p.user.delete);
+
           document.querySelectorAll('.color-option').forEach(function (o) {
             o.classList.toggle('selected', o.dataset.color === d.color);
             if (o.dataset.color === d.color) selectedColor = d.color;
@@ -1140,17 +1170,35 @@ var App = /*#__PURE__*/function () {
         document.getElementById('drive-edit-id').value = '';
         document.getElementById('cfg-drive-name').value = '';
         document.getElementById('cfg-drive-path').value = '';
+        document.getElementById('p-m-read').checked = true;
+        document.getElementById('p-m-upload').checked = true;
+        document.getElementById('p-m-delete').checked = false;
+        document.getElementById('p-u-read').checked = true;
+        document.getElementById('p-u-upload').checked = false;
+        document.getElementById('p-u-delete').checked = false;
         document.getElementById('drive-form-title').textContent = 'Adicionar Drive';
       });
       var saveBtn = document.getElementById('drive-form-save');
       if (saveBtn) saveBtn.addEventListener('click', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-        var editId, name, path, _t9;
+        var editId, name, path, permissions, body, _t9;
         return _regenerator().w(function (_context9) {
           while (1) switch (_context9.p = _context9.n) {
             case 0:
               editId = document.getElementById('drive-edit-id').value;
               name = document.getElementById('cfg-drive-name').value.trim();
               path = document.getElementById('cfg-drive-path').value.trim();
+              permissions = {
+                master: {
+                  read: document.getElementById('p-m-read').checked,
+                  upload: document.getElementById('p-m-upload').checked,
+                  delete: document.getElementById('p-m-delete').checked
+                },
+                user: {
+                  read: document.getElementById('p-u-read').checked,
+                  upload: document.getElementById('p-u-upload').checked,
+                  delete: document.getElementById('p-u-delete').checked
+                }
+              };
               if (!(!name || !path)) {
                 _context9.n = 1;
                 break;
@@ -1159,27 +1207,25 @@ var App = /*#__PURE__*/function () {
               return _context9.a(2);
             case 1:
               _context9.p = 1;
+              body = {
+                name,
+                path,
+                color: selectedColor,
+                permissions
+              };
               if (!editId) {
                 _context9.n = 3;
                 break;
               }
               _context9.n = 2;
-              return API.put('/admin/drives/' + editId, {
-                name,
-                path,
-                color: selectedColor
-              });
+              return API.put('/admin/drives/' + editId, body);
             case 2:
               showToast('Drive atualizado', 'success');
               _context9.n = 5;
               break;
             case 3:
               _context9.n = 4;
-              return API.post('/admin/drives', {
-                name,
-                path,
-                color: selectedColor
-              });
+              return API.post('/admin/drives', body);
             case 4:
               showToast('Drive adicionado', 'success');
             case 5:

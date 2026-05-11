@@ -2,18 +2,19 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { updateActivity } = require('../sessions');
+const { updateActivity, getSession, isSessionActive } = require('../sessions');
+const { readJSON } = require('../utils/storage');
 
 const dataDir = path.join(os.homedir(), '.WebFileExplorer');
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
 function getConfig() {
-  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  return readJSON(configPath) || { drives: [] };
 }
 
 function getUsers() {
-  return JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+  return readJSON(usersPath) || [];
 }
 
 function authenticate(req, res, next) {
@@ -39,6 +40,14 @@ function authenticate(req, res, next) {
       return res.status(401).json({ error: 'Usuário não encontrado' });
     }
     req.user = { id: user.id, username: user.username, role: user.role };
+    
+    // Inject session info (IP, MAC)
+    const session = getSession(token);
+    if (session) {
+      req.user.ip = session.ip;
+      req.user.mac = session.mac;
+    }
+
     // Track session activity
     updateActivity(token);
     next();

@@ -2,6 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { readJSON, writeJSON } = require('./utils/storage');
 const { exec } = require('child_process');
 
 let statusInterval = null;
@@ -141,9 +142,9 @@ async function updateDDNS(config, force = false) {
 function saveRecords(records) {
   try {
     const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const config = readJSON(configPath);
     config.dnsRecords = records;
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    writeJSON(configPath, config);
   } catch (e) {}
 }
 
@@ -160,7 +161,7 @@ function initDDNS() {
   const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
   if (!fs.existsSync(configPath)) return;
 
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const config = readJSON(configPath);
   
   if (config.dnsAutoRefresh === false) {
     if (global.addLog) global.addLog('SYSTEM', 'DDNS Automático desativado nas configurações', 'DDNS');

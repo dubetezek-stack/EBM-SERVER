@@ -285,8 +285,50 @@ select.form-input {
 
 .top-bar-actions {
   display: flex;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.user-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 8px;
+  padding-right: 12px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.user-badge-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-badge-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.user-badge-role {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.user-badge-role.admin { background: rgba(0, 120, 212, 0.2); color: var(--accent); }
+.user-badge-role.master { background: rgba(15, 163, 107, 0.2); color: #0fa36b; }
+
+.user-badge-details {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: 'Consolas', 'Monaco', monospace;
+  margin-top: 1px;
+  letter-spacing: 0.5px;
 }
 
 /* ===== TOOLBAR ===== */

@@ -5,6 +5,7 @@ const cors = require('cors');
 const os = require('os');
 const { initDDNS } = require('./ddns');
 const { router: cameraRouter, initCameraWS } = require('./routes/cameras');
+const { readJSON, writeJSON } = require('./utils/storage');
 
 const app = express();
 
@@ -21,19 +22,19 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const configPath = path.join(dataDir, 'config.json');
 if (!fs.existsSync(configPath)) {
-  fs.writeFileSync(configPath, JSON.stringify({
+  writeJSON(configPath, {
     drives: [], jwtSecret: '', port: 3000, serverName: 'Web File Explorer',
     ddns: { enabled: false, provider: 'cloudflare', token: '', zoneId: '', recordName: '', proxied: true, lastIp: '' }
-  }, null, 2));
+  });
 }
 
 const usersPath = path.join(dataDir, 'users.json');
 if (!fs.existsSync(usersPath)) {
-  fs.writeFileSync(usersPath, JSON.stringify([], null, 2));
+  writeJSON(usersPath, []);
 }
 
 // Read port from config
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+const config = readJSON(configPath);
 const PORT = process.env.PORT || config.port || 3000;
 const SERVER_NAME = config.serverName || 'Web File Explorer';
 

@@ -9,7 +9,35 @@ function renderExplorer() {
   var role = getUserRole();
   var isAdmin = role === 'admin';
   var isMasterPlus = role === 'master' || role === 'admin';
-  return '<div class="explorer-layout">' + '<div class="top-bar">' + '<div class="nav-buttons">' + '<button class="btn-icon" id="btn-back" title="Voltar">' + Icons.back + '</button>' + '<button class="btn-icon" id="btn-up" title="Subir">' + Icons.up + '</button>' + '<button class="btn-icon" id="btn-home" title="Início">' + Icons.home + '</button>' + '</div>' + '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + '<div class="top-bar-actions">' + (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + '</div>' + '</div>' + '<div class="toolbar">' + '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + (isMasterPlus ? '<button class="toolbar-btn" id="btn-upload">' + Icons.upload + ' <span>Upload</span></button>' : '') + '<button class="toolbar-btn" id="btn-speedtest" style="background:var(--accent-blue);color:#fff;font-weight:600;gap:8px">' + Icons.speed + ' <span>Speed Test</span></button>' + (isMasterPlus ? '<button class="toolbar-btn" id="btn-cameras" style="background:var(--accent-green);color:#fff;font-weight:600;gap:8px">' + Icons.camera + ' <span>Câmeras</span></button>' : '') + '</div>' + '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + '</div>';
+  
+  return '<div class="explorer-layout">' + 
+    '<div class="top-bar">' + 
+      '<div class="nav-buttons">' + 
+        '<button class="btn-icon" id="btn-back" title="Voltar">' + Icons.back + '</button>' + 
+        '<button class="btn-icon" id="btn-up" title="Subir">' + Icons.up + '</button>' + 
+        '<button class="btn-icon" id="btn-home" title="Início">' + Icons.home + '</button>' + 
+      '</div>' + 
+      '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + 
+      '<div class="top-bar-actions">' + 
+        '<div class="user-badge">' + 
+          '<div class="user-badge-main">' + 
+            '<span class="user-badge-name">' + escapeHtml(window.app.user.username) + '</span>' + 
+            '<span class="user-badge-role ' + role + '">' + (isAdmin ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'COMUM')) + '</span>' + 
+          '</div>' + 
+          '<div class="user-badge-details">' + (window.app.user.ip || '---') + ' • ' + (window.app.user.mac || '---') + '</div>' + 
+        '</div>' + 
+        (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + 
+        '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + 
+      '</div>' + 
+    '</div>' + 
+    '<div class="toolbar">' + 
+      '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + 
+      '<button class="toolbar-btn" id="btn-upload" style="display:none">' + Icons.upload + ' <span>Upload</span></button>' + 
+      '<button class="toolbar-btn" id="btn-speedtest" style="background:var(--accent-blue);color:#fff;font-weight:600;gap:8px">' + Icons.speed + ' <span>Speed Test</span></button>' + 
+      (isMasterPlus ? '<button class="toolbar-btn" id="btn-cameras" style="background:var(--accent-green);color:#fff;font-weight:600;gap:8px">' + Icons.camera + ' <span>Câmeras</span></button>' : '') + 
+    '</div>' + 
+    '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
+  '</div>';
 }
 function renderSpeedTestView() {
   return '<div class="speedtest-view" style="height: 100%; min-height: 500px; border-radius: var(--radius); overflow: hidden; background: #000;">' + '<iframe src="/speedtest/index.html" style="width:100%; height:100%; border:none;"></iframe>' + '</div>';
@@ -83,17 +111,29 @@ function renderDrives(drives) {
   html += '</div></div>';
   return html;
 }
-function renderFileList(files, driveId, subpath) {
+function renderFileList(files, driveId, subpath, drivePermissions) {
   if (!files || !files.length) {
     return '<div class="empty-state">' + Icons.emptyFolder + '<p>Esta pasta está vazia</p></div>';
   }
   var role = getUserRole();
   var isAdmin = role === 'admin';
-  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (isAdmin ? '<th style="width:40px"></th>' : '') + '</tr></thead><tbody>';
+  
+  // Resolve granular permission for current user
+  var canDelete = isAdmin;
+  if (!isAdmin && drivePermissions) {
+    var p = drivePermissions;
+    if (role === 'master') canDelete = !!(p.master && p.master.delete);
+    else if (role === 'user') canDelete = !!(p.user && p.user.delete);
+  } else if (!isAdmin && !drivePermissions) {
+    // Default fallback if no permissions object (older config)
+    canDelete = role === 'master';
+  }
+
+  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (canDelete ? '<th style="width:40px"></th>' : '') + '</tr></thead><tbody>';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
     var filePath = subpath ? subpath + '/' + f.name : f.name;
-    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '">' + '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + '<td class="file-date">' + formatDate(f.modified) + '</td>' + '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + (isAdmin ? '<td><button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button></td>' : '') + '</tr>';
+    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '">' + '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + '<td class="file-date">' + formatDate(f.modified) + '</td>' + '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + (canDelete ? '<td><button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button></td>' : '') + '</tr>';
   }
   html += '</tbody></table></div>';
   return html;
