@@ -1,65 +1,71 @@
 const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 
-// Use a unique key for the application
-const SECRET_KEY = crypto.createHash('sha256').update('LUXvision_Secure_Storage_Key_2026').digest();
+// AES-256-CBC Encryption settings
 const ALGORITHM = 'aes-256-cbc';
+// In a real production environment, this key should be in an environment variable
+const STORAGE_KEY = Buffer.from('4a616d6573426f6e643030375365637265744b6579313233343536373839303132', 'hex'); // 32 bytes
 
 function encrypt(text) {
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, SECRET_KEY, iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+  const cipher = crypto.createCipheriv(ALGORITHM, STORAGE_KEY, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
 }
 
 function decrypt(text) {
   try {
     const textParts = text.split(':');
-    if (textParts.length < 2) return null;
     const iv = Buffer.from(textParts.shift(), 'hex');
     const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const decipher = crypto.createDecipheriv(ALGORITHM, SECRET_KEY, iv);
-    let decrypted = decipher.update(encryptedText);
-    decrypted = Buffer.concat([decrypted, decipher.final()]);
-    return decrypted.toString();
+    const decipher = crypto.createDecipheriv(ALGORITHM, STORAGE_KEY, iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   } catch (e) {
-    return null; // Failed to decrypt (maybe not encrypted)
+    return text; // Return original if decryption fails (might be plain text)
   }
 }
 
 function readJSON(filePath) {
-  if (!fs.existsSync(filePath)) return null;
-  const content = fs.readFileSync(filePath, 'utf8').trim();
-  if (!content) return null;
-
-  // Try to decrypt
-  const decrypted = decrypt(content);
-  if (decrypted) {
-    try {
-      return JSON.parse(decrypted);
-    } catch (e) {
-      // Decrypted but not valid JSON? Should not happen.
-    }
-  }
-
-  // Fallback: Check if it's plain JSON (for migration)
   try {
-    const data = JSON.parse(content);
-    // It's plain JSON! Migrate it by saving back (encrypted)
-    // We delay this to avoid write during read if possible, but here it's safe
-    const encrypted = encrypt(JSON.stringify(data, null, 2));
-    fs.writeFileSync(filePath, encrypted);
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8').trim();
+    if (!raw) return null;
+
+    // Check if it's already encrypted (our format is hex:hex)
+    if (raw.includes(':') && !raw.startsWith('{') && !raw.startsWith('[')) {
+      const decrypted = decrypt(raw);
+      return JSON.parse(decrypted);
+    }
+
+    // If it's plain text, parse it and then encrypt it for next time
+    const data = JSON.parse(raw);
+    writeJSON(filePath, data);
     return data;
   } catch (e) {
+    console.error('Storage Read Error:', e.message);
     return null;
   }
 }
 
 function writeJSON(filePath, data) {
-  const json = JSON.stringify(data, null, 2);
-  const encrypted = encrypt(json);
-  fs.writeFileSync(filePath, encrypted);
+  try {
+    const text = JSON.stringify(data, null, 2);
+    const encrypted = encrypt(text);
+    fs.writeFileSync(filePath, encrypted);
+    return true;
+  } catch (e) {
+    console.error('Storage Write Error:', e.message);
+    return false;
+  }
 }
 
-module.exports = { readJSON, writeJSON };
+module.exports = {
+  readJSON,
+  writeJSON,
+  encrypt,
+  decrypt
+};
