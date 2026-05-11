@@ -99,6 +99,7 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log(`  Local:    http://localhost:${PORT}`);
   console.log(`  Rede:     http://${localIP}:${PORT}`);
+  console.log(`  Dados:    ${dataDir}`);
   console.log('');
   console.log('  Acesse pelo celular usando o endereco de Rede');
   console.log('  ============================================');
