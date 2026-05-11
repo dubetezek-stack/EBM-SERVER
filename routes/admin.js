@@ -284,43 +284,50 @@ router.post('/server/startup', (req, res) => {
   const { enabled } = req.body;
   const { execSync } = require('child_process');
   
-  // Always try to remove the old shortcut if it exists
+  const projectRoot = path.resolve(__dirname, '..');
+  const runnerBatPath = path.join(projectRoot, 'run_at_boot.bat');
   const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
+
+  // Always try to remove the old shortcut if it exists
   if (fs.existsSync(startupPath)) {
     try { fs.unlinkSync(startupPath); } catch(e) {}
   }
 
   if (enabled) {
     try {
-      const batPath = path.resolve(__dirname, '..', 'start.bat');
-      const dataDir = DATA_DIR;
+      // Create a runner batch file that sets the environment and starts the server
+      const runnerContent = `@echo off\r\nset EBMSERVER_DATA_DIR=${DATA_DIR}\r\nset EBMSERVER_TASK=1\r\ncd /d "${projectRoot}"\r\ncall start.bat`;
+      fs.writeFileSync(runnerBatPath, runnerContent);
       
-      // Create a temporary batch file to handle the complex escaping for schtasks
+      // Create a temporary batch file to perform the registration with elevation
       const setupBatPath = path.join(os.tmpdir(), 'setup_ebm_task.bat');
-      // The task will run at boot (onstart) as SYSTEM, with highest privileges
-      const taskCmd = `@echo off\nschtasks /create /tn EBMSERVER /tr "cmd /c \\"set EBMSERVER_DATA_DIR=${dataDir} && set EBMSERVER_TASK=1 && \\"${batPath}\\"\\"" /sc onstart /ru SYSTEM /rl HIGHEST /f`;
-      
+      // Simple quoting for the batch file
+      const taskCmd = `@echo off\r\nschtasks /create /tn EBMSERVER /tr "${runnerBatPath}" /sc onstart /ru SYSTEM /rl HIGHEST /f`;
       fs.writeFileSync(setupBatPath, taskCmd);
       
-      // Use PowerShell to run the batch file with elevation (UAC prompt)
       const psCommand = `powershell -Command "Start-Process '${setupBatPath}' -Verb RunAs -Wait"`;
-      
       execSync(psCommand);
-      if (fs.existsSync(setupBatPath)) fs.unlinkSync(setupBatPath);
       
+      // Check if it actually worked
+      try {
+        execSync('schtasks /query /tn EBMSERVER', { stdio: 'ignore' });
+      } catch (e) {
+        throw new Error('A tarefa não foi criada. Verifique se você aceitou o aviso de Administrador do Windows.');
+      }
+
+      if (fs.existsSync(setupBatPath)) fs.unlinkSync(setupBatPath);
       res.json({ success: true, enabled: true });
     } catch (err) {
-      res.status(500).json({ error: 'Erro ao configurar tarefa de inicialização: ' + err.message });
+      console.error('Startup Setup Error:', err);
+      res.status(500).json({ error: err.message });
     }
   } else {
     try {
-      // Use PowerShell to delete the task with elevation
+      if (fs.existsSync(runnerBatPath)) fs.unlinkSync(runnerBatPath);
       const psCommand = `powershell -Command "Start-Process schtasks -ArgumentList '/delete /tn EBMSERVER /f' -Verb RunAs -Wait"`;
-      
       execSync(psCommand);
       res.json({ success: true, enabled: false });
     } catch (err) {
-      // If it fails because the task doesn't exist, it's fine
       res.json({ success: true, enabled: false });
     }
   }
