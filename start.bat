@@ -18,21 +18,28 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-:: Get configured port from config.json or use 3005 default
-set PORT=3005
-if exist "data\config.json" (
-    for /f "tokens=*" %%a in ('node utils\get-port.js') do set PORT=%%a
-)
+:run
+:: Get configured port
+set PORT=3000
+for /f "tokens=*" %%a in ('node utils\get-port.js') do set PORT=%%a
 
 echo [*] Servidor configurado na porta: %PORT%
 echo [*] Iniciando servidor...
 echo.
 
-:: Start the browser automatically in 2 seconds
-start /b cmd /c "timeout /t 2 >nul && start http://localhost:%PORT%"
+:: Start the browser automatically in 2 seconds (only on first run if possible, but fine for now)
+:: start /b cmd /c "timeout /t 2 >nul && start http://localhost:%PORT%"
 
 :: Start the server
 node server.js
+
+:: Handle Restart (Code 99)
+if %errorlevel% equ 99 (
+    echo.
+    echo [*] Reiniciando servidor...
+    echo.
+    goto run
+)
 
 if %errorlevel% neq 0 (
     echo.
