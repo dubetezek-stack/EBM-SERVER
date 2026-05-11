@@ -1,4 +1,5 @@
 @echo off
+pushd "%~dp0"
 title EBM SERVER
 color 0B
 
@@ -36,5 +37,8 @@ node server.js
 if %errorlevel% neq 0 (
     echo.
     echo [!] O servidor parou com erro (Codigo: %errorlevel%)
+    popd
     pause
+) else (
+    popd
 )
