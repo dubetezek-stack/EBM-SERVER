@@ -62,6 +62,15 @@ var App = /*#__PURE__*/function () {
   }, {
     key: "navigate",
     value: function navigate(view) {
+      // CLEANUP: Kill any running camera streams before switching views
+      try {
+        if (this.camPlayer) {
+          this.camPlayer.destroy();
+          this.camPlayer = null;
+        }
+        this.stopGridMode();
+      } catch (e) { console.warn('Cleanup error:', e); }
+
       var appEl = document.getElementById('app');
       try {
         if (view === 'setup') {
@@ -340,6 +349,10 @@ var App = /*#__PURE__*/function () {
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.p = _context3.n) {
             case 0:
+              // CLEANUP CAMERAS
+              if (this.camPlayer) { this.camPlayer.destroy(); this.camPlayer = null; }
+              this.stopGridMode();
+
               this.currentDriveId = null;
               this.currentSubpath = '';
               this._driveName = '';
@@ -392,6 +405,10 @@ var App = /*#__PURE__*/function () {
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.p = _context4.n) {
             case 0:
+              // CLEANUP CAMERAS
+              if (this.camPlayer) { this.camPlayer.destroy(); this.camPlayer = null; }
+              this.stopGridMode();
+
               this.currentDriveId = driveId;
               this.currentSubpath = subpath || '';
               if (driveName) this._driveName = driveName;
