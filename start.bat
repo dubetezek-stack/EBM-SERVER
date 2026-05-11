@@ -27,8 +27,8 @@ echo [*] Servidor configurado na porta: %PORT%
 echo [*] Iniciando servidor...
 echo.
 
-:: Start the browser automatically in 2 seconds (only on first run if possible, but fine for now)
-:: start /b cmd /c "timeout /t 2 >nul && start http://localhost:%PORT%"
+:: Start the browser automatically in 2 seconds
+start /b cmd /c "timeout /t 2 >nul && start http://localhost:%PORT%"
 
 :: Start the server
 node server.js
