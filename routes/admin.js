@@ -169,7 +169,8 @@ router.get('/server', (req, res) => {
     dnsInterval: config.dnsInterval || 5,
     dnsCheckInterval: config.dnsCheckInterval || 1,
     nextCheckTime: global.nextCheckTime || 0,
-    nextUpdateTime: global.nextUpdateTime || 0
+    nextUpdateTime: global.nextUpdateTime || 0,
+    camera: config.camera || { ip: '', port: '', user: '', pass: '', rtspPort: 554 }
   });
 });
 
@@ -192,6 +193,7 @@ router.put('/server', (req, res) => {
   if (dnsAutoRefresh !== undefined) config.dnsAutoRefresh = dnsAutoRefresh;
   if (dnsInterval !== undefined) config.dnsInterval = parseInt(dnsInterval);
   if (dnsCheckInterval !== undefined) config.dnsCheckInterval = parseInt(dnsCheckInterval);
+  if (req.body.camera) config.camera = req.body.camera;
   writeJSON(configPath, config);
   
   // Re-initialize DNS service

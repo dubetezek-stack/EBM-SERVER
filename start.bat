@@ -139,7 +139,7 @@ if exist "C:\Program Files\nodejs\node.exe" (
 set "PATH=%NODE_PATH%;%PATH%"
 
 for /f "tokens=*" %%i in ('"%NODE_PATH%\node.exe" -v') do set "NODE_VER=%%i"
-echo  [1/3] Node.js %NODE_VER% ..... OK
+echo  [1/4] Node.js %NODE_VER% ..... OK
 
 :: ============================================
 :: PASSO 2: Verificar npm
@@ -150,14 +150,14 @@ if not exist "%NODE_PATH%\npm.cmd" (
     pause
     exit /b 1
 )
-echo  [2/3] npm .................. OK
+echo  [2/4] npm .................. OK
 
 :: ============================================
 :: PASSO 3: Instalar dependencias do projeto
 :: ============================================
 
 if not exist "%~dp0node_modules" (
-    echo  [3/3] Instalando dependencias do projeto...
+    echo  [3/4] Instalando dependencias do projeto...
     echo.
     call "%NODE_PATH%\npm.cmd" install --prefix "%~dp0."
     if %errorlevel% neq 0 (
@@ -168,9 +168,30 @@ if not exist "%~dp0node_modules" (
         exit /b 1
     )
     echo.
-    echo  [3/3] Dependencias ........ OK
+    echo  [3/4] Dependencias ........ OK
 ) else (
-    echo  [3/3] Dependencias ........ OK
+    echo  [3/4] Dependencias ........ OK
+)
+
+:: ============================================
+:: PASSO 4: Verificar/Instalar FFmpeg
+:: ============================================
+
+if not exist "%~dp0ffmpeg.exe" (
+    echo  [4/4] Instalando FFmpeg...
+    
+    :: Tentar encontrar na pasta de instaladores (caminho aninhado que vimos antes)
+    set "FFMPEG_SRC=%~dp0installers\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin"
+    
+    if exist "%FFMPEG_SRC%\ffmpeg.exe" (
+        copy /y "%FFMPEG_SRC%\*" "%~dp0" >nul
+        echo  [4/4] FFmpeg instalado .... OK
+    ) else (
+        echo  [!] FFmpeg nao encontrado em installers.
+        echo  [!] O monitoramento de cameras pode nao funcionar.
+    )
+) else (
+    echo  [4/4] FFmpeg ............... OK
 )
 
 echo.

@@ -245,9 +245,13 @@ var App = /*#__PURE__*/function () {
         self.showUpload();
       });
       el = document.getElementById('btn-speedtest');
-      if (el) el.addEventListener('click', function () {
+      if (el) el.onclick = function () {
         self.showSpeedTest();
-      });
+      };
+      el = document.getElementById('btn-cameras');
+      if (el) el.onclick = function () {
+        self.showCameras();
+      };
       var searchInput = document.getElementById('search-input');
       if (searchInput) searchInput.addEventListener('input', function () {
         self.filterFiles(searchInput.value);
@@ -685,6 +689,215 @@ var App = /*#__PURE__*/function () {
             });
           }
         }
+      }
+    }
+  }, {
+    key: "toggleGridMode",
+    value: function toggleGridMode() {
+      var _thisGrid = this;
+      var btn = document.getElementById('btn-toggle-grid');
+      var mainPlayer = document.getElementById('cam-main-player');
+      var gridContainer = document.getElementById('cam-grid-container');
+      var qualityContainer = document.getElementById('quality-toggle-container');
+      
+      if (!this.mosaicMode) {
+        // Switch to MOSAIC
+        this.mosaicMode = true;
+        if (btn) btn.textContent = 'Modo Player';
+        if (mainPlayer) mainPlayer.style.display = 'none';
+        if (gridContainer) gridContainer.style.display = 'grid';
+        if (qualityContainer) qualityContainer.style.visibility = 'hidden';
+        
+        // Stop main player
+        if (this.camPlayer) {
+          this.camPlayer.destroy();
+          this.camPlayer = null;
+        }
+
+        // Start all 16 with Dual-Host trick to bypass connection limits
+        this.gridPlayers = this.gridPlayers || [];
+        var slots = document.querySelectorAll('.cam-slot');
+        slots.forEach(function(slot, index) {
+          setTimeout(function() {
+            if (!_thisGrid.mosaicMode) return;
+            
+            var camId = slot.dataset.cam;
+            var canvas = slot.querySelector('.cam-slot-canvas');
+            if (!canvas) {
+              canvas = document.createElement('canvas');
+              canvas.className = 'cam-slot-canvas';
+              canvas.style.cssText = 'width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;z-index:1';
+              slot.appendChild(canvas);
+            }
+
+            function startCam() {
+              if (!_thisGrid.mosaicMode) return;
+              try {
+                // The Trick: Alternate hosts to bypass browser 6-connection limit
+                var host = (index % 2 === 0) ? window.location.hostname : '127.0.0.1';
+                if (host === 'localhost') host = '127.0.0.1'; // Ensure we use IP if on localhost
+                if (index > 8) host = window.location.hostname; // Mix them
+                
+                var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                var port = window.location.port ? ':' + window.location.port : '';
+                var wsUrl = protocol + '//' + host + port + '/api/cameras/stream?channel=' + camId + '&quality=1&grid=1&token=' + API.token + '&_t=' + Date.now() + index;
+                
+                var player = new JSMpeg.Player(wsUrl, {
+                  canvas: canvas,
+                  autoplay: true,
+                  audio: false,
+                  onVideoDecode: function() {
+                    if (player._retryTimer) clearTimeout(player._retryTimer);
+                  }
+                });
+
+                player._retryTimer = setTimeout(function() {
+                  if (_thisGrid.mosaicMode && player) {
+                    player.destroy();
+                    startCam();
+                  }
+                }, 10000);
+
+                _thisGrid.gridPlayers.push(player);
+              } catch (e) { console.error(e); }
+            }
+            startCam();
+          }, index * 150);
+        });
+        showToast('Iniciando mosaico de alta velocidade...', 'info');
+      } else {
+        // Switch back to SINGLE
+        this.mosaicMode = false;
+        if (btn) btn.textContent = 'Ver Todas';
+        if (mainPlayer) mainPlayer.style.display = 'flex';
+        if (gridContainer) gridContainer.style.display = 'grid'; // Grid is still visible but below player
+        if (qualityContainer) qualityContainer.style.visibility = 'visible';
+        
+        this.stopGridMode();
+        showToast('Retornando ao modo player único', 'info');
+      }
+    }
+  }, {
+    key: "stopGridMode",
+    value: function stopGridMode() {
+      if (this.gridPlayers) {
+        this.gridPlayers.forEach(function(p) { 
+          if (p._retryTimer) clearTimeout(p._retryTimer);
+          p.destroy(); 
+        });
+        this.gridPlayers = [];
+      }
+    }
+  }, {
+    key: "showCameras",
+    value: function showCameras() {
+      var self = this;
+      var role = getUserRole();
+      if (role !== 'admin' && role !== 'master') {
+        showToast('Acesso negado às câmeras', 'error');
+        this.navigate('explorer');
+        return;
+      }
+      this.currentDriveId = 'cameras';
+      this.currentSubpath = '';
+      this._driveName = 'Monitoramento';
+      this.pushHistory();
+      this.updateBreadcrumb();
+      var content = document.getElementById('content-area');
+      if (content) {
+        content.innerHTML = renderCamerasView();
+        this.currentCamQuality = '1'; // Default SD
+        this.currentCamId = null;
+        this.mosaicMode = false;
+        this.mosaicStreamPlayer = null;
+
+        // Bind toggle grid
+        var gridBtn = document.getElementById('btn-toggle-grid');
+        if (gridBtn) gridBtn.onclick = function() { self.toggleGridMode(); };
+
+        // Bind camera slots
+        content.querySelectorAll('.cam-slot').forEach(function (slot) {
+          slot.onclick = function () {
+            var wasInMosaic = self.mosaicMode;
+            if (self.mosaicMode) {
+              self.toggleGridMode();
+            }
+            
+            content.querySelectorAll('.cam-slot').forEach(function(s) { 
+              s.style.borderColor = '#333'; 
+              s.style.background = 'rgba(0,0,0,0.1)'; 
+            });
+            slot.style.borderColor = 'var(--accent-green)';
+            slot.style.background = 'rgba(0,255,0,0.05)';
+            
+            self.currentCamId = slot.dataset.cam;
+            
+            if (wasInMosaic) {
+              setTimeout(function() {
+                self.startCameraStream(self.currentCamId, self.currentCamQuality);
+              }, 1500);
+            } else {
+              self.startCameraStream(self.currentCamId, self.currentCamQuality);
+            }
+          };
+        });
+
+        // Bind quality buttons
+        content.querySelectorAll('.quality-btn').forEach(function (btn) {
+          btn.onclick = function () {
+            content.querySelectorAll('.quality-btn').forEach(function(b) {
+              b.classList.remove('active');
+              b.style.background = 'transparent';
+              b.style.color = 'var(--text-secondary)';
+            });
+            btn.classList.add('active');
+            btn.style.background = 'var(--accent-blue)';
+            btn.style.color = 'white';
+            
+            self.currentCamQuality = btn.dataset.quality;
+            if (self.currentCamId) {
+              self.startCameraStream(self.currentCamId, self.currentCamQuality);
+            }
+          };
+        });
+      }
+    }
+  }, {
+    key: "startCameraStream",
+    value: function startCameraStream(camId, quality) {
+      var canvas = document.getElementById('cam-canvas');
+      var placeholder = document.getElementById('cam-no-signal');
+      if (!canvas || !placeholder) return;
+
+      if (this.camPlayer) {
+        this.camPlayer.destroy();
+        this.camPlayer = null;
+      }
+
+      placeholder.style.display = 'none';
+      canvas.style.display = 'block';
+
+      var q = quality || '1';
+      var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var wsUrl = protocol + '//' + window.location.host + '/api/cameras/stream?channel=' + camId + '&quality=' + q + '&token=' + API.token;
+
+      console.log('Iniciando stream:', camId, 'Qualidade:', q === '0' ? 'HD' : 'SD');
+      try {
+        canvas.style.background = '#000';
+        this.camPlayer = new JSMpeg.Player(wsUrl, {
+          canvas: canvas,
+          autoplay: true,
+          audio: false,
+          onVideoDecode: function() {
+            if (canvas.style.display === 'none') {
+               canvas.style.display = 'block';
+               placeholder.style.display = 'none';
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Erro JSMpeg:', e);
+        showToast('Erro ao iniciar câmera', 'error');
       }
     }
   }, {
@@ -1145,6 +1358,25 @@ var App = /*#__PURE__*/function () {
         };
       }
 
+      var camSaveBtn = document.getElementById('cam-config-save');
+      if (camSaveBtn) {
+        camSaveBtn.onclick = function() {
+          var camData = {
+            ip: document.getElementById('cfg-cam-ip').value,
+            port: document.getElementById('cfg-cam-port').value,
+            user: document.getElementById('cfg-cam-user').value,
+            pass: document.getElementById('cfg-cam-pass').value,
+            rtspPort: document.getElementById('cfg-cam-rtsp').value
+          };
+          API.put('/admin/server', { camera: camData })
+            .then(function() {
+              showToast('Configuração de câmeras salva', 'success');
+            })["catch"](function(err) {
+              showToast(err.message, 'error');
+            });
+        };
+      }
+
       if (!isRefresh) {
         // Countdown timers + green flash indicators
         if (this.dnsPolling) clearInterval(this.dnsPolling);
@@ -1454,6 +1686,22 @@ var App = /*#__PURE__*/function () {
   }]);
 }(); 
 
+// Wrapper to handle camera disconnection when navigating
+var _originalNavigate = App.prototype.navigate;
+App.prototype.navigate = function(view, params) {
+  if (this.camPlayer) {
+    console.log('Desconectando câmera por navegação...');
+    this.camPlayer.destroy();
+    this.camPlayer = null;
+  }
+  if (this.gridPlayers && this.gridPlayers.length > 0) {
+    console.log('Desconectando mosaico por navegação...');
+    this.gridPlayers.forEach(function(p) { p.destroy(); });
+    this.gridPlayers = [];
+  }
+  return _originalNavigate.call(this, view, params);
+};
+
 // Wrapper to add logs tab support after babel transpilation
 var _originalLoadConfigTab = App.prototype.loadConfigTab;
 App.prototype.loadConfigTab = function(tab) {
@@ -1475,6 +1723,16 @@ App.prototype.loadConfigTab = function(tab) {
   } else if (tab === 'speedtest') {
     var body = document.getElementById('config-body');
     if (body) body.innerHTML = renderSpeedTestConfig();
+  } else if (tab === 'cameras') {
+    var body = document.getElementById('config-body');
+    if (body) body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    var self = this;
+    API.get('/admin/server').then(function(config) {
+      if (body) {
+        body.innerHTML = renderCamerasConfig(config);
+        self.bindServerConfig(config);
+      }
+    });
   } else {
     return _originalLoadConfigTab.call(this, tab);
   }

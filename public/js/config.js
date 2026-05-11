@@ -8,7 +8,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
 
 function renderConfigPanel() {
-  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
+  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="cameras">Câmeras</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
 }
 
 function renderDrivesConfig(drives) {
@@ -194,10 +194,8 @@ function renderServerConfig(serverConfig) {
     '<button class="btn btn-primary btn-sm" id="dns-form-save" type="button">Salvar DNS</button>' + 
     '<button class="btn btn-sm" id="server-dns-test" type="button" style="margin-left:8px;background:var(--accent);color:#fff">Forçar Atualização Agora</button>' +
     '</div>' +
-    '</div>' +
     '</div>' + 
   '</div>' + 
-  
   '<div class="config-form" style="border-color:var(--border);margin-top:16px">' + '<h3>Controle do Servidor</h3>' + 
   '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
     '<div style="display:flex;align-items:center;gap:8px">' +
@@ -206,6 +204,25 @@ function renderServerConfig(serverConfig) {
     '</div>' +
   '</div>' +
   '<div style="display:flex;gap:12px;flex-wrap:wrap">' + '<button class="btn btn-sm" id="server-restart" type="button" style="background:var(--accent-blue);color:#fff">' + Icons.refresh + 'Reiniciar' + '</button>' + '<button class="btn btn-sm" id="server-shutdown" type="button" style="background:var(--danger);color:#fff">' + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>' + 'Desligar' + '</button>' + '</div>' + '</div>';
+}
+
+function renderCamerasConfig(serverConfig) {
+  var cam = serverConfig.camera || { ip: '', port: '', user: '', pass: '', rtspPort: 554 };
+  return '<div class="config-form" style="background:var(--bg-primary);border-radius:8px;padding:16px;border:1px solid var(--border)">' +
+    '<h3 style="margin-top:0">Configuração do DVR LUXvision</h3>' +
+    '<div class="form-group"><label>Endereço IP Local</label><input class="form-input" id="cfg-cam-ip" placeholder="192.168.2.40" value="' + (cam.ip || '') + '"></div>' +
+    '<div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="form-group"><label>Porta HTTP</label><input class="form-input" id="cfg-cam-port" placeholder="40001" value="' + (cam.port || '') + '"></div>' +
+      '<div class="form-group"><label>Porta RTSP</label><input class="form-input" id="cfg-cam-rtsp" placeholder="554" value="' + (cam.rtspPort || 554) + '"></div>' +
+    '</div>' +
+    '<div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+      '<div class="form-group"><label>Usuário</label><input class="form-input" id="cfg-cam-user" value="' + (cam.user || '') + '"></div>' +
+      '<div class="form-group"><label>Senha</label><input class="form-input" id="cfg-cam-pass" type="password" value="' + (cam.pass || '') + '"></div>' +
+    '</div>' +
+    '<div class="form-actions" style="margin-top:16px">' +
+      '<button class="btn btn-primary" id="cam-config-save" style="width:100%">Salvar Configurações de Câmeras</button>' +
+    '</div>' +
+    '</div>';
 }
 
 function getTimeDiff(dateStr) {

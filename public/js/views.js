@@ -9,10 +9,42 @@ function renderExplorer() {
   var role = getUserRole();
   var isAdmin = role === 'admin';
   var isMasterPlus = role === 'master' || role === 'admin';
-  return '<div class="explorer-layout">' + '<div class="top-bar">' + '<div class="nav-buttons">' + '<button class="btn-icon" id="btn-back" title="Voltar">' + Icons.back + '</button>' + '<button class="btn-icon" id="btn-up" title="Subir">' + Icons.up + '</button>' + '<button class="btn-icon" id="btn-home" title="Início">' + Icons.home + '</button>' + '</div>' + '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + '<div class="top-bar-actions">' + (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + '</div>' + '</div>' + '<div class="toolbar">' + '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + (isMasterPlus ? '<button class="toolbar-btn" id="btn-upload">' + Icons.upload + ' <span>Upload</span></button>' : '') + '<button class="toolbar-btn" id="btn-speedtest" style="background:var(--accent-blue);color:#fff;font-weight:600;gap:8px">' + Icons.speed + ' <span>Speed Test</span></button>' + '</div>' + '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + '</div>';
+  return '<div class="explorer-layout">' + '<div class="top-bar">' + '<div class="nav-buttons">' + '<button class="btn-icon" id="btn-back" title="Voltar">' + Icons.back + '</button>' + '<button class="btn-icon" id="btn-up" title="Subir">' + Icons.up + '</button>' + '<button class="btn-icon" id="btn-home" title="Início">' + Icons.home + '</button>' + '</div>' + '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + '<div class="top-bar-actions">' + (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + '</div>' + '</div>' + '<div class="toolbar">' + '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + (isMasterPlus ? '<button class="toolbar-btn" id="btn-upload">' + Icons.upload + ' <span>Upload</span></button>' : '') + '<button class="toolbar-btn" id="btn-speedtest" style="background:var(--accent-blue);color:#fff;font-weight:600;gap:8px">' + Icons.speed + ' <span>Speed Test</span></button>' + (isMasterPlus ? '<button class="toolbar-btn" id="btn-cameras" style="background:var(--accent-green);color:#fff;font-weight:600;gap:8px">' + Icons.camera + ' <span>Câmeras</span></button>' : '') + '</div>' + '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + '</div>';
 }
 function renderSpeedTestView() {
   return '<div class="speedtest-view" style="height: 100%; min-height: 500px; border-radius: var(--radius); overflow: hidden; background: #000;">' + '<iframe src="/speedtest/index.html" style="width:100%; height:100%; border:none;"></iframe>' + '</div>';
+}
+function renderCamerasView() {
+  var gridHtml = '';
+  for (var i = 1; i <= 16; i++) {
+    gridHtml += '<div class="cam-slot" data-cam="' + i + '" style="background:transparent;border:1px solid rgba(255,255,255,0.05);display:flex;align-items:flex-start;justify-content:flex-start;cursor:pointer;aspect-ratio:16/9;position:relative;z-index:2">' +
+                '<span style="margin:4px;font-weight:bold;color:#fff;background:rgba(0,0,0,0.4);padding:0 6px;border-radius:2px;z-index:3;font-size:10px">' + i + '</span>' +
+                '</div>';
+  }
+
+  return '<div class="cameras-view" style="display:flex;flex-direction:column;gap:16px;height:100%">' +
+           '<div class="cameras-header" style="background:var(--bg-secondary);padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;padding:0 8px">' +
+              '<div style="font-size:14px;font-weight:600">Monitoramento ao Vivo</div>' +
+              '<div style="display:flex;gap:8px;align-items:center">' +
+               '<button id="btn-toggle-grid" class="toolbar-btn" style="background:var(--bg-secondary);border:1px solid var(--border);padding:4px 12px;font-weight:600">Ver Todas</button>' +
+               '<div class="cam-quality-toggle" id="quality-toggle-container" style="display:flex;background:var(--bg-secondary);padding:3px;border-radius:20px;border:1px solid var(--border)">' +
+                 '<button class="quality-btn active" data-quality="1" style="border:none;background:var(--accent-blue);color:white;padding:4px 12px;border-radius:15px;font-size:11px;font-weight:600;cursor:pointer">SD</button>' +
+                 '<button class="quality-btn" data-quality="0" style="border:none;background:transparent;color:var(--text-secondary);padding:4px 12px;border-radius:15px;font-size:11px;font-weight:600;cursor:pointer">HD</button>' +
+               '</div>' +
+              '</div>' +
+            '</div>' +
+           '</div>' +
+           
+           '<div id="cam-main-player" style="flex:1;background:#000;border-radius:var(--radius);border:1px solid #333;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;min-height:400px">' +
+             '<div id="cam-no-signal" style="display:flex;flex-direction:column;align-items:center;gap:12px;color:#555">' + Icons.camera + '<span>Selecione uma câmera</span></div>' +
+             '<canvas id="cam-canvas" style="width:100%;height:100%;display:none;object-fit:contain"></canvas>' +
+           '</div>' +
+
+           '<div id="cam-grid-container" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;padding:4px;background:#000;border-radius:var(--radius)">' +
+             gridHtml +
+           '</div>' +
+         '</div>';
 }
 function renderDrives(drives) {
   if (!drives || !drives.length) {

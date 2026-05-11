@@ -4,6 +4,7 @@ const fs = require('fs');
 const cors = require('cors');
 const os = require('os');
 const { initDDNS } = require('./ddns');
+const { router: cameraRouter, initCameraWS } = require('./routes/cameras');
 
 const app = express();
 
@@ -67,6 +68,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/files', require('./routes/files'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/cameras', cameraRouter);
 
 // SPA fallback
 app.get('*', (req, res) => {
@@ -74,7 +76,7 @@ app.get('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   // Find local network IP
   let localIP = 'localhost';
   const interfaces = os.networkInterfaces();
@@ -100,5 +102,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('');
 
   initDDNS();
+  initCameraWS(server);
 });
 
