@@ -11,7 +11,7 @@ router.use(authenticate);
 // Resolve and validate path against configured drives
 function resolvePath(driveId, subpath) {
   const config = getConfig();
-  const drive = config.drives.find(d => d.id === driveId);
+  const drive = (config.drives || []).find(d => d.id === driveId);
   if (!drive) return null;
 
   const basePath = path.resolve(drive.path);
@@ -29,7 +29,7 @@ router.get('/drives', async (req, res) => {
   const drives = [];
   const userRole = req.user.role;
 
-  for (const drive of config.drives) {
+  for (const drive of (config.drives || [])) {
     // Permission Check: Read
     if (userRole !== 'admin') {
       const p = drive.permissions || { 

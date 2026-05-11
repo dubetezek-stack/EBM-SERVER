@@ -8,18 +8,18 @@ const os = require('os');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { getActiveSessions, removeSessionById } = require('../sessions');
 
-const dataDir = path.join(os.homedir(), '.WebFileExplorer');
+const { readJSON, writeJSON, DATA_DIR } = require('../utils/storage');
+
+const dataDir = DATA_DIR;
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
-
-const { readJSON, writeJSON } = require('../utils/storage');
 
 router.use(authenticate, requireAdmin);
 
 // === DRIVES ===
 
 router.get('/drives', (req, res) => {
-  const config = readJSON(configPath);
+  const config = readJSON(configPath) || { drives: [] };
   res.json(config.drives || []);
 });
 
@@ -33,7 +33,7 @@ router.post('/drives', (req, res) => {
     return res.status(400).json({ error: 'Caminho não encontrado: ' + drivePath });
   }
 
-  const config = readJSON(configPath);
+  const config = readJSON(configPath) || { drives: [] };
   const drive = {
     id: crypto.randomUUID(),
     name,
@@ -46,6 +46,7 @@ router.post('/drives', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
+  if (!config.drives) config.drives = [];
   config.drives.push(drive);
   writeJSON(configPath, config);
   res.json(drive);
@@ -53,8 +54,8 @@ router.post('/drives', (req, res) => {
 
 router.put('/drives/:id', (req, res) => {
   const { name, path: drivePath, color, permissions } = req.body;
-  const config = readJSON(configPath);
-  const idx = config.drives.findIndex(d => d.id === req.params.id);
+  const config = readJSON(configPath) || { drives: [] };
+  const idx = (config.drives || []).findIndex(d => d.id === req.params.id);
 
   if (idx === -1) {
     return res.status(404).json({ error: 'Drive não encontrado' });
@@ -74,8 +75,8 @@ router.put('/drives/:id', (req, res) => {
 });
 
 router.delete('/drives/:id', (req, res) => {
-  const config = readJSON(configPath);
-  config.drives = config.drives.filter(d => d.id !== req.params.id);
+  const config = readJSON(configPath) || { drives: [] };
+  config.drives = (config.drives || []).filter(d => d.id !== req.params.id);
   writeJSON(configPath, config);
   res.json({ success: true });
 });
@@ -83,7 +84,7 @@ router.delete('/drives/:id', (req, res) => {
 // === USERS ===
 
 router.get('/users', (req, res) => {
-  const users = readJSON(usersPath);
+  const users = readJSON(usersPath) || [];
   res.json(users.map(u => ({
     id: u.id, username: u.username, role: u.role, createdAt: u.createdAt
   })));
@@ -95,7 +96,7 @@ router.post('/users', async (req, res) => {
     return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
   }
 
-  const users = readJSON(usersPath);
+  const users = readJSON(usersPath) || [];
   if (users.find(u => u.username === username)) {
     return res.status(400).json({ error: 'Usuário já existe' });
   }
@@ -116,7 +117,7 @@ router.post('/users', async (req, res) => {
 
 router.put('/users/:id', async (req, res) => {
   const { username, password, role } = req.body;
-  const users = readJSON(usersPath);
+  const users = readJSON(usersPath) || [];
   const idx = users.findIndex(u => u.id === req.params.id);
 
   if (idx === -1) {
@@ -145,7 +146,7 @@ router.delete('/users/:id', (req, res) => {
     return res.status(400).json({ error: 'Não é possível remover seu próprio usuário' });
   }
 
-  const users = readJSON(usersPath);
+  const users = readJSON(usersPath) || [];
   writeJSON(usersPath, users.filter(u => u.id !== req.params.id));
   res.json({ success: true });
 });
@@ -164,10 +165,10 @@ router.delete('/sessions/:id', (req, res) => {
 // === SERVER CONFIG ===
 
 router.get('/server', (req, res) => {
-  const config = readJSON(configPath);
+  const config = readJSON(configPath) || {};
   res.json({
     port: config.port || 3000,
-    serverName: config.serverName || 'Web File Explorer',
+    serverName: config.serverName || 'EBM SERVER',
     dnsRecords: config.dnsRecords || [],
     dnsAutoRefresh: config.dnsAutoRefresh !== false,
     dnsInterval: config.dnsInterval || 5,
@@ -190,7 +191,7 @@ router.get('/server/ip', async (req, res) => {
 
 router.put('/server', (req, res) => {
   const { port, serverName, dnsRecords, dnsAutoRefresh, dnsInterval, dnsCheckInterval } = req.body;
-  const config = readJSON(configPath);
+  const config = readJSON(configPath) || {};
   if (port) config.port = parseInt(port);
   if (serverName !== undefined) config.serverName = serverName;
   if (dnsRecords) config.dnsRecords = dnsRecords;
@@ -208,7 +209,7 @@ router.put('/server', (req, res) => {
 
   res.json({
     port: config.port || 3000,
-    serverName: config.serverName || 'Web File Explorer',
+    serverName: config.serverName || 'EBM SERVER',
     dnsRecords: config.dnsRecords || [],
     dnsAutoRefresh: config.dnsAutoRefresh !== false,
     dnsInterval: config.dnsInterval || 5,
@@ -221,7 +222,7 @@ router.post('/server/ddns/test', async (req, res) => {
   const { index } = req.body;
   try {
     const { updateDDNS } = require('../ddns');
-    const config = readJSON(configPath);
+    const config = readJSON(configPath) || {};
     
     if (index !== undefined) {
       // Test only one record
@@ -267,13 +268,13 @@ router.post('/server/restart', (req, res) => {
 
 // === STARTUP CONTROL ===
 router.get('/server/startup', (req, res) => {
-  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'WebFileExplorer.lnk');
+  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
   res.json({ enabled: fs.existsSync(startupPath) });
 });
 
 router.post('/server/startup', (req, res) => {
   const { enabled } = req.body;
-  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'WebFileExplorer.lnk');
+  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
   
   if (enabled) {
     try {

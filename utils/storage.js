@@ -5,7 +5,18 @@ const crypto = require('crypto');
 // AES-256-CBC Encryption settings
 const ALGORITHM = 'aes-256-cbc';
 // In a real production environment, this key should be in an environment variable
-const STORAGE_KEY = Buffer.from('4a616d6573426f6e643030375365637265744b6579313233343536373839303132', 'hex'); // 32 bytes
+const STORAGE_KEY = Buffer.from('4a616d6573426f6e643030375365637265744b65793132333435363738393031', 'hex'); // Exactly 32 bytes
+
+// Centralized Data Directory Logic
+const os = require('os');
+const localDataDir = path.join(__dirname, '..', 'data');
+const homeDataDir = path.join(os.homedir(), '.WebFileExplorer');
+const DATA_DIR = fs.existsSync(homeDataDir) ? homeDataDir : localDataDir;
+
+// Ensure directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 function encrypt(text) {
   const iv = crypto.randomBytes(16);
@@ -18,6 +29,7 @@ function encrypt(text) {
 function decrypt(text) {
   try {
     const textParts = text.split(':');
+    if (textParts.length < 2) return null;
     const iv = Buffer.from(textParts.shift(), 'hex');
     const encryptedText = Buffer.from(textParts.join(':'), 'hex');
     const decipher = crypto.createDecipheriv(ALGORITHM, STORAGE_KEY, iv);
@@ -25,7 +37,8 @@ function decrypt(text) {
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (e) {
-    return text; // Return original if decryption fails (might be plain text)
+    // console.error('Decryption Error:', e.message);
+    return null;
   }
 }
 
@@ -35,16 +48,30 @@ function readJSON(filePath) {
     const raw = fs.readFileSync(filePath, 'utf8').trim();
     if (!raw) return null;
 
-    // Check if it's already encrypted (our format is hex:hex)
+    // Check if it's likely encrypted (iv:hex)
     if (raw.includes(':') && !raw.startsWith('{') && !raw.startsWith('[')) {
       const decrypted = decrypt(raw);
-      return JSON.parse(decrypted);
+      if (decrypted) {
+        try {
+          return JSON.parse(decrypted);
+        } catch (parseErr) {
+          console.error('Storage Parse Error (Encrypted):', parseErr.message);
+          return null;
+        }
+      }
+      console.error('Storage Decryption Failed for:', filePath);
+      return null;
     }
 
     // If it's plain text, parse it and then encrypt it for next time
-    const data = JSON.parse(raw);
-    writeJSON(filePath, data);
-    return data;
+    try {
+      const data = JSON.parse(raw);
+      writeJSON(filePath, data);
+      return data;
+    } catch (parseErr) {
+      console.error('Storage Parse Error (Plain):', parseErr.message);
+      return null;
+    }
   } catch (e) {
     console.error('Storage Read Error:', e.message);
     return null;
@@ -67,5 +94,6 @@ module.exports = {
   readJSON,
   writeJSON,
   encrypt,
-  decrypt
+  decrypt,
+  DATA_DIR
 };

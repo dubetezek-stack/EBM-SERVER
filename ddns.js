@@ -2,7 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { readJSON, writeJSON } = require('./utils/storage');
+const { readJSON, writeJSON, DATA_DIR } = require('./utils/storage');
 const { exec } = require('child_process');
 
 let statusInterval = null;
@@ -141,8 +141,8 @@ async function updateDDNS(config, force = false) {
 
 function saveRecords(records) {
   try {
-    const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
-    const config = readJSON(configPath);
+    const configPath = path.join(DATA_DIR, 'config.json');
+    const config = readJSON(configPath) || {};
     config.dnsRecords = records;
     writeJSON(configPath, config);
   } catch (e) {}
@@ -158,10 +158,11 @@ function initDDNS() {
     global.updateInterval = null;
   }
 
-  const configPath = path.join(os.homedir(), '.WebFileExplorer', 'config.json');
+  const configPath = path.join(DATA_DIR, 'config.json');
   if (!fs.existsSync(configPath)) return;
 
   const config = readJSON(configPath);
+  if (!config) return;
   
   if (config.dnsAutoRefresh === false) {
     if (global.addLog) global.addLog('SYSTEM', 'DDNS Automático desativado nas configurações', 'DDNS');
@@ -189,7 +190,7 @@ function initDDNS() {
   // On interval: status ping only
   statusInterval = setInterval(() => {
     global.nextCheckTime = Date.now() + checkMs;
-    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const cfg = readJSON(configPath);
     if (cfg.dnsAutoRefresh === false) return;
     checkStatus(cfg).catch(() => {});
   }, checkMs);
@@ -197,7 +198,7 @@ function initDDNS() {
   // On interval: full update
   global.updateInterval = setInterval(() => {
     global.nextUpdateTime = Date.now() + updateMs;
-    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const cfg = readJSON(configPath);
     if (cfg.dnsAutoRefresh === false) return;
     updateDDNS(cfg).catch(() => {});
   }, updateMs);

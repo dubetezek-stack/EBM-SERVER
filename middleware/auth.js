@@ -3,14 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { updateActivity, getSession, isSessionActive } = require('../sessions');
-const { readJSON } = require('../utils/storage');
+const { readJSON, DATA_DIR } = require('../utils/storage');
 
-const dataDir = path.join(os.homedir(), '.WebFileExplorer');
+const dataDir = DATA_DIR;
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
 function getConfig() {
-  return readJSON(configPath) || { drives: [] };
+  const cfg = readJSON(configPath) || {};
+  if (!cfg.drives) cfg.drives = [];
+  return cfg;
 }
 
 function getUsers() {

@@ -39,7 +39,28 @@ function renderUsersConfig(users) {
     var badgeLabel = u.role === 'admin' ? 'Admin' : u.role === 'master' ? 'Master' : 'Usuário';
     html += '<div class="config-item">' + '<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">' + Icons.user + '</div>' + '<div class="config-item-info">' + '<div class="config-item-name">' + escapeHtml(u.username) + ' <span class="badge ' + badgeClass + '">' + badgeLabel + '</span></div>' + '<div class="config-item-detail">Criado em ' + formatDate(u.createdAt) + '</div>' + '</div>' + '<div class="config-item-actions">' + '<button class="btn-icon cfg-edit-user" data-id="' + u.id + '" data-username="' + escapeHtml(u.username) + '" data-role="' + u.role + '" title="Editar">' + Icons.edit + '</button>' + '<button class="btn-icon cfg-del-user" data-id="' + u.id + '" title="Remover">' + Icons.trash + '</button>' + '</div>' + '</div>';
   }
-  html += "<div class=\"config-form\" id=\"user-form\">\n    <h3 id=\"user-form-title\">Adicionar Usu\xE1rio</h3>\n    <input type=\"hidden\" id=\"user-edit-id\">\n    <div class=\"form-group\"><label>Nome de Usu\xE1rio</label><input class=\"form-input\" id=\"cfg-user-name\" placeholder=\"nome\"></div>\n    <div class=\"form-group\"><label>Senha</label><input class=\"form-input\" id=\"cfg-user-pass\" type=\"password\" placeholder=\"\u2022\u2022\u2022\u2022\u2022\u2022\"></div>\n    <div class=\"form-group\"><label>Tipo</label>\n      <select class=\"form-input\" id=\"cfg-user-role\">\n        <option value=\"user\">Usu\xE1rio (somente leitura)</option>\n        <option value=\"master\">Master (ler + enviar)</option>\n        <option value=\"admin\">Administrador (tudo)</option>\n      </select>\n    </div>\n    <div class=\"form-actions\">\n      <button class=\"btn btn-secondary btn-sm\" id=\"user-form-cancel\" type=\"button\">Cancelar</button>\n      <button class=\"btn btn-primary btn-sm\" id=\"user-form-save\" type=\"button\">Salvar</button>\n    </div>\n  </div>";
+  html += `<div class="config-form" id="user-form">
+    <h3 id="user-form-title">Adicionar Usuário</h3>
+    <input type="hidden" id="user-edit-id">
+    <div id="cfg-user-error" style="color:var(--danger);font-size:12px;margin-bottom:12px;display:none"></div>
+    <div class="form-group"><label>Nome de Usuário</label><input class="form-input" id="cfg-user-name" placeholder="nome"></div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input class="form-input" id="cfg-user-pass" type="password" placeholder="••••••••">
+      <small style="color:var(--text-muted);font-size:11px;margin-top:4px;display:block">Mínimo de 4 caracteres</small>
+    </div>
+    <div class="form-group"><label>Tipo</label>
+      <select class="form-input" id="cfg-user-role">
+        <option value="user">Usuário (somente leitura)</option>
+        <option value="master">Master (ler + enviar)</option>
+        <option value="admin">Administrador (tudo)</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary btn-sm" id="user-form-cancel" type="button">Cancelar</button>
+      <button class="btn btn-primary btn-sm" id="user-form-save" type="button">Salvar</button>
+    </div>
+  </div>`;
   return html;
 }
 
@@ -116,7 +137,7 @@ function renderServerConfig(serverConfig) {
     '<h3>Configurações do Servidor</h3>' + 
     '<div class="form-row">' + 
       '<div class="form-group" style="flex:2"><label>Nome do Servidor</label>' + 
-        '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="Web File Explorer">' + 
+        '<input class="form-input" id="cfg-server-name" value="' + escapeHtml(serverConfig.serverName || '') + '" placeholder="EBM SERVER">' + 
       '</div>' + 
       '<div class="form-group" style="flex:1"><label>Porta</label>' + 
         '<input class="form-input" id="cfg-server-port" type="number" value="' + (serverConfig.port || 3000) + '" min="1" max="65535" placeholder="3000">' + 

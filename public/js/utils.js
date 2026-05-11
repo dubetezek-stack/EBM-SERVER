@@ -39,8 +39,43 @@ function escapeHtml(s) {
 
 // Auth Views
 function renderSetup() {
-  return "<div class=\"auth-page\"><div class=\"auth-card\">\n    <div class=\"logo\">\n      <svg viewBox=\"0 0 48 48\"><rect x=\"4\" y=\"8\" width=\"40\" height=\"32\" rx=\"3\" fill=\"#3d3d3d\"/><rect x=\"4\" y=\"28\" width=\"40\" height=\"12\" rx=\"2\" fill=\"#4a4a4a\"/><circle cx=\"38\" cy=\"34\" r=\"2\" fill=\"#60cdff\"/><rect x=\"8\" y=\"12\" width=\"32\" height=\"14\" rx=\"1\" fill=\"#60cdff\" opacity=\"0.3\"/></svg>\n      <h1>Web File Explorer</h1>\n      <p>Configura\xE7\xE3o Inicial \u2014 Crie o administrador</p>\n    </div>\n    <div id=\"auth-error\" class=\"auth-error\"></div>\n    <form id=\"setup-form\">\n      <div class=\"form-group\"><label>Nome de Usu\xE1rio</label><input class=\"form-input\" id=\"setup-user\" placeholder=\"admin\" required autocomplete=\"off\"></div>\n      <div class=\"form-group\"><label>Senha</label><input class=\"form-input\" id=\"setup-pass\" type=\"password\" placeholder=\"\u2022\u2022\u2022\u2022\u2022\u2022\" required></div>\n      <div class=\"form-group\"><label>Confirmar Senha</label><input class=\"form-input\" id=\"setup-pass2\" type=\"password\" placeholder=\"\u2022\u2022\u2022\u2022\u2022\u2022\" required></div>\n      <button type=\"submit\" class=\"btn btn-primary\">Criar Administrador</button>\n    </form>\n  </div></div>";
+  return `<div class="auth-page"><div class="auth-card">
+    <div class="logo">
+      <svg viewBox="0 0 48 48"><rect x="4" y="8" width="40" height="32" rx="3" fill="#3d3d3d"/><rect x="4" y="28" width="40" height="12" rx="2" fill="#4a4a4a"/><circle cx="38" cy="34" r="2" fill="#60cdff"/><rect x="8" y="12" width="32" height="14" rx="1" fill="#60cdff" opacity="0.3"/></svg>
+      <h1>EBM SERVER</h1>
+      <p>Configuração Inicial — Crie o administrador</p>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <form id="setup-form">
+      <div class="form-group">
+        <label>Nome de Usuário</label>
+        <input class="form-input" id="setup-user" placeholder="Ex: admin" required autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Senha</label>
+        <input class="form-input" id="setup-pass" type="password" placeholder="••••••••" required>
+        <small style="color:var(--text-muted);font-size:11px;margin-top:4px;display:block">Mínimo de 4 caracteres</small>
+      </div>
+      <div class="form-group">
+        <label>Confirmar Senha</label>
+        <input class="form-input" id="setup-pass2" type="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Criar Administrador</button>
+    </form>
+  </div></div>`;
 }
 function renderLogin() {
-  return "<div class=\"auth-page\"><div class=\"auth-card\">\n    <div class=\"logo\">\n      <svg viewBox=\"0 0 48 48\"><rect x=\"4\" y=\"8\" width=\"40\" height=\"32\" rx=\"3\" fill=\"#3d3d3d\"/><rect x=\"4\" y=\"28\" width=\"40\" height=\"12\" rx=\"2\" fill=\"#4a4a4a\"/><circle cx=\"38\" cy=\"34\" r=\"2\" fill=\"#60cdff\"/><rect x=\"8\" y=\"12\" width=\"32\" height=\"14\" rx=\"1\" fill=\"#60cdff\" opacity=\"0.3\"/></svg>\n      <h1>Web File Explorer</h1>\n      <p>Fa\xE7a login para acessar seus arquivos</p>\n    </div>\n    <div id=\"auth-error\" class=\"auth-error\"></div>\n    <form id=\"login-form\">\n      <div class=\"form-group\"><label>Usu\xE1rio</label><input class=\"form-input\" id=\"login-user\" placeholder=\"Seu nome de usu\xE1rio\" required autocomplete=\"off\"></div>\n      <div class=\"form-group\"><label>Senha</label><input class=\"form-input\" id=\"login-pass\" type=\"password\" placeholder=\"\u2022\u2022\u2022\u2022\u2022\u2022\" required></div>\n      <button type=\"submit\" class=\"btn btn-primary\">Entrar</button>\n    </form>\n  </div></div>";
+  return `<div class="auth-page"><div class="auth-card">
+    <div class="logo">
+      <svg viewBox="0 0 48 48"><rect x="4" y="8" width="40" height="32" rx="3" fill="#3d3d3d"/><rect x="4" y="28" width="40" height="12" rx="2" fill="#4a4a4a"/><circle cx="38" cy="34" r="2" fill="#60cdff"/><rect x="8" y="12" width="32" height="14" rx="1" fill="#60cdff" opacity="0.3"/></svg>
+      <h1>EBM SERVER</h1>
+      <p>Faça login para acessar seus arquivos</p>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <form id="login-form">
+      <div class="form-group"><label>Usuário</label><input class="form-input" id="login-user" placeholder="Seu nome de usuário" required autocomplete="off"></div>
+      <div class="form-group"><label>Senha</label><input class="form-input" id="login-pass" type="password" placeholder="••••••••" required></div>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+    </form>
+  </div></div>`;
 }

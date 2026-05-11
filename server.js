@@ -5,7 +5,7 @@ const cors = require('cors');
 const os = require('os');
 const { initDDNS } = require('./ddns');
 const { router: cameraRouter, initCameraWS } = require('./routes/cameras');
-const { readJSON, writeJSON } = require('./utils/storage');
+const { readJSON, writeJSON, DATA_DIR } = require('./utils/storage');
 
 const app = express();
 
@@ -16,14 +16,12 @@ function addLog(level, msg, ip) {
 }
 global.addLog = addLog;
 
-// Ensure data directory and default files exist
-const dataDir = path.join(os.homedir(), '.WebFileExplorer');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const dataDir = DATA_DIR;
 
 const configPath = path.join(dataDir, 'config.json');
 if (!fs.existsSync(configPath)) {
   writeJSON(configPath, {
-    drives: [], jwtSecret: '', port: 3000, serverName: 'Web File Explorer',
+    drives: [], jwtSecret: '', port: 3000, serverName: 'EBM SERVER',
     ddns: { enabled: false, provider: 'cloudflare', token: '', zoneId: '', recordName: '', proxied: true, lastIp: '' }
   });
 }
@@ -34,9 +32,13 @@ if (!fs.existsSync(usersPath)) {
 }
 
 // Read port from config
-const config = readJSON(configPath);
+// Read port from config with fallbacks
+const config = readJSON(configPath) || {
+  drives: [], jwtSecret: '', port: 3000, serverName: 'EBM SERVER',
+  ddns: { enabled: false, provider: 'cloudflare', token: '', zoneId: '', recordName: '', proxied: true, lastIp: '' }
+};
 const PORT = process.env.PORT || config.port || 3000;
-const SERVER_NAME = config.serverName || 'Web File Explorer';
+const SERVER_NAME = config.serverName || 'EBM SERVER';
 
 // Middleware
 app.set('trust proxy', true);

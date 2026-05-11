@@ -9,23 +9,23 @@ const os = require('os');
 const { authenticate } = require('../middleware/auth');
 const { addSession } = require('../sessions');
 
-const dataDir = path.join(os.homedir(), '.WebFileExplorer');
+const { readJSON, writeJSON, DATA_DIR } = require('../utils/storage');
+
+const dataDir = DATA_DIR;
 const configPath = path.join(dataDir, 'config.json');
 const usersPath = path.join(dataDir, 'users.json');
 
-const { readJSON, writeJSON } = require('../utils/storage');
-
 // Check if admin exists
 router.get('/status', (req, res) => {
-  const users = readJSON(usersPath);
-  const config = readJSON(configPath);
+  const users = readJSON(usersPath) || [];
+  const config = readJSON(configPath) || {};
   const hasAdmin = users.some(u => u.role === 'admin');
-  res.json({ setupComplete: hasAdmin, serverName: config.serverName || 'Web File Explorer' });
+  res.json({ setupComplete: hasAdmin, serverName: config.serverName || 'EBM SERVER' });
 });
 
 // First-time setup
 router.post('/setup', async (req, res) => {
-  const users = readJSON(usersPath);
+  const users = readJSON(usersPath) || [];
   if (users.some(u => u.role === 'admin')) {
     return res.status(400).json({ error: 'Administrador já configurado' });
   }
@@ -52,7 +52,7 @@ router.post('/setup', async (req, res) => {
   users.push(admin);
   writeJSON(usersPath, users);
 
-  const config = readJSON(configPath);
+  const config = readJSON(configPath) || {};
   config.jwtSecret = jwtSecret;
   writeJSON(configPath, config);
 
@@ -83,18 +83,26 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
   }
 
-  const users = readJSON(usersPath);
+  console.log('Login attempt:', username);
+  const users = readJSON(usersPath) || [];
   const user = users.find(u => u.username === username);
+  
   if (!user) {
+    console.log('Login failed: User not found:', username);
+    global.addLog('WARN', 'Login falhou: Usuário não encontrado: ' + username, req.ip);
     return res.status(401).json({ error: 'Usuário ou senha incorretos' });
   }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
+    console.log('Login failed: Invalid password for:', username);
+    global.addLog('WARN', 'Login falhou: Senha inválida para: ' + username, req.ip);
     return res.status(401).json({ error: 'Usuário ou senha incorretos' });
   }
 
-  const config = readJSON(configPath);
+  console.log('Login success:', username);
+
+  const config = readJSON(configPath) || { jwtSecret: 'defaultSecret' };
   const token = jwt.sign({ id: user.id }, config.jwtSecret, { expiresIn: '7d' });
   const sessionData = { userId: user.id, username: user.username, role: user.role, ip: req.ip, userAgent: req.headers['user-agent'] };
   addSession(token, sessionData);
