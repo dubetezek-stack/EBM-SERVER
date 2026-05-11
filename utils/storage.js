@@ -9,7 +9,7 @@ const STORAGE_KEY = Buffer.from('4a616d6573426f6e643030375365637265744b657931323
 
 // Centralized Data Directory Logic
 const os = require('os');
-const DATA_DIR = path.join(os.homedir(), '.webfileexplorer');
+const DATA_DIR = process.env.EBMSERVER_DATA_DIR || path.join(os.homedir(), '.webfileexplorer');
 
 // Ensure directory exists
 if (!fs.existsSync(DATA_DIR)) {

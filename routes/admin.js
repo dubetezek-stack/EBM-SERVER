@@ -268,46 +268,60 @@ router.post('/server/restart', (req, res) => {
 
 // === STARTUP CONTROL ===
 router.get('/server/startup', (req, res) => {
-  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
-  res.json({ enabled: fs.existsSync(startupPath) });
+  try {
+    const { execSync } = require('child_process');
+    // Check if the task exists in Task Scheduler
+    execSync('schtasks /query /tn EBMSERVER', { stdio: 'ignore' });
+    res.json({ enabled: true });
+  } catch (e) {
+    // Also check for the old shortcut for backward compatibility during migration
+    const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
+    res.json({ enabled: fs.existsSync(startupPath) });
+  }
 });
 
 router.post('/server/startup', (req, res) => {
   const { enabled } = req.body;
-  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
+  const { execSync } = require('child_process');
   
+  // Always try to remove the old shortcut if it exists
+  const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
+  if (fs.existsSync(startupPath)) {
+    try { fs.unlinkSync(startupPath); } catch(e) {}
+  }
+
   if (enabled) {
     try {
-      const targetPath = process.execPath; // node.exe
-      const scriptPath = path.resolve(__dirname, '..', 'server.js');
-      const workingDir = path.resolve(__dirname, '..');
+      const batPath = path.resolve(__dirname, '..', 'start.bat');
+      const dataDir = DATA_DIR;
       
-      // Create a VBS script to create the shortcut
-      const vbsPath = path.join(os.tmpdir(), 'create_shortcut.vbs');
-      const vbsContent = `
-        Set WshShell = WScript.CreateObject("WScript.Shell")
-        Set oShellLink = WshShell.CreateShortcut("${startupPath.replace(/\\/g, '\\\\')}")
-        oShellLink.TargetPath = "${targetPath.replace(/\\/g, '\\\\')}"
-        oShellLink.Arguments = "${scriptPath.replace(/\\/g, '\\\\')}"
-        oShellLink.WorkingDirectory = "${workingDir.replace(/\\/g, '\\\\')}"
-        oShellLink.WindowStyle = 7
-        oShellLink.Save
-      `;
-      fs.writeFileSync(vbsPath, vbsContent, 'utf16le');
-      require('child_process').execSync(`cscript //nologo "${vbsPath}"`);
-      fs.unlinkSync(vbsPath);
+      // Create a temporary batch file to handle the complex escaping for schtasks
+      const setupBatPath = path.join(os.tmpdir(), 'setup_ebm_task.bat');
+      // The task will run at boot (onstart) as SYSTEM, with highest privileges
+      const taskCmd = `@echo off\nschtasks /create /tn EBMSERVER /tr "cmd /c \\"set EBMSERVER_DATA_DIR=${dataDir} && set EBMSERVER_TASK=1 && \\"${batPath}\\"\\"" /sc onstart /ru SYSTEM /rl HIGHEST /f`;
+      
+      fs.writeFileSync(setupBatPath, taskCmd);
+      
+      // Use PowerShell to run the batch file with elevation (UAC prompt)
+      const psCommand = `powershell -Command "Start-Process '${setupBatPath}' -Verb RunAs -Wait"`;
+      
+      execSync(psCommand);
+      if (fs.existsSync(setupBatPath)) fs.unlinkSync(setupBatPath);
+      
       res.json({ success: true, enabled: true });
     } catch (err) {
-      res.status(500).json({ error: 'Erro ao criar atalho: ' + err.message });
+      res.status(500).json({ error: 'Erro ao configurar tarefa de inicialização: ' + err.message });
     }
   } else {
     try {
-      if (fs.existsSync(startupPath)) {
-        fs.unlinkSync(startupPath);
-      }
+      // Use PowerShell to delete the task with elevation
+      const psCommand = `powershell -Command "Start-Process schtasks -ArgumentList '/delete /tn EBMSERVER /f' -Verb RunAs -Wait"`;
+      
+      execSync(psCommand);
       res.json({ success: true, enabled: false });
     } catch (err) {
-      res.status(500).json({ error: 'Erro ao remover atalho: ' + err.message });
+      // If it fails because the task doesn't exist, it's fine
+      res.json({ success: true, enabled: false });
     }
   }
 });
