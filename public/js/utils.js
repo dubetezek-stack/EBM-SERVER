@@ -1,6 +1,8 @@
 "use strict";
 
 // Utilities
+var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
+
 function formatSize(bytes) {
   if (bytes == null) return '';
   if (bytes === 0) return '0 B';

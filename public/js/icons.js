@@ -31,7 +31,11 @@ var Icons = {
   camera: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   appstore: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.6 3 12"/><polyline points="21 12 16.5 14.6 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
   plex: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#E5A00D"><path d="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12z"/><path d="M10.2 6l5.4 6-5.4 6V6z" fill="#000"/></svg>',
-  homeassistant: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#03A9F4"><path d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z"/></svg>'
+  homeassistant: '<svg width="18" height="18" viewBox="0 0 24 24" fill="#03A9F4"><path d="M12 2L2 12h3v8h6v-6h2v6h6v-8h3L12 2z"/></svg>',
+  explorer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>',
+  speedtest: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c0-5.5 4.5-10 10-10s10 4.5 10 10"/><path d="M12 17v4"/><path d="M8 17l-1 2"/><path d="M16 17l1 2"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1"/></svg>',
+  cameras: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  transmission: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10a10 10 0 0020 0V7l-10-5z"/><polyline points="2 7 12 12 22 7"/><polyline points="12 12 12 22"/></svg>'
 };
 
 function getFileIcon(file) {

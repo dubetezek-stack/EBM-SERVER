@@ -8,59 +8,197 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
 
 function renderConfigPanel() {
-  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="cameras">Câmeras</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
+  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="apps">Apps Instalados</button>' + '<button class="config-tab" data-tab="cameras">DVR LUXvision</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
 }
 
-function renderDrivesConfig(drives) {
-  var html = '';
-  var _iterator = _createForOfIteratorHelper(drives),
-    _step;
-  try {
-    for (_iterator.s(); !(_step = _iterator.n()).done;) {
-      var d = _step.value;
-      html += "<div class=\"config-item\" data-drive-id=\"".concat(d.id, "\">\n      <div class=\"drive-icon\" style=\"width:32px;height:32px\">").concat(Icons.drive(d.color || '#0078d4'), "</div>\n      <div class=\"config-item-info\">\n        <div class=\"config-item-name\">").concat(escapeHtml(d.name), "</div>\n        <div class=\"config-item-detail\">").concat(escapeHtml(d.path), "</div>\n      </div>\n      <div class=\"config-item-actions\">\n        <button class=\"btn-icon cfg-edit-drive\" data-id=\"").concat(d.id, "\" title=\"Editar\">").concat(Icons.edit, "</button>\n        <button class=\"btn-icon cfg-del-drive\" data-id=\"").concat(d.id, "\" title=\"Remover\">").concat(Icons.trash, "</button>\n      </div>\n    </div>");
-    }
-  } catch (err) {
-    _iterator.e(err);
-  } finally {
-    _iterator.f();
-  }
-  html += "<div class=\"config-form\" id=\"drive-form\">\n    <h3 id=\"drive-form-title\">Adicionar Drive</h3>\n    <input type=\"hidden\" id=\"drive-edit-id\">\n    <div class=\"form-group\"><label>Nome de Exibi\xE7\xE3o</label><input class=\"form-input\" id=\"cfg-drive-name\" placeholder=\"Servidor F\"></div>\n    <div class=\"form-group\"><label>Caminho da Pasta</label><input class=\"form-input\" id=\"cfg-drive-path\" placeholder=\"X:\\ ou \\\\servidor\\pasta\"></div>\n    <div class=\"form-group\"><label>Cor</label><div class=\"color-options\" id=\"cfg-drive-colors\">\n      ".concat(DRIVE_COLORS.map(function (c, i) {
-    return '<div class="color-option ' + (i === 0 ? 'selected' : '') + '" data-color="' + c + '" style="background:' + c + '"></div>';
-  }).join(''), "\n    </div></div>\n\n    <div class=\"form-group\">\n      <label>Permiss\xF5es Master</label>\n      <div style=\"display:flex;gap:15px;margin-top:4px\">\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-m-read\" checked> Leitura</label>\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-m-upload\" checked> Upload</label>\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-m-delete\"> Apagar</label>\n      </div>\n    </div>\n\n    <div class=\"form-group\" style=\"margin-top:12px\">\n      <label>Permiss\xF5es Comum (User)</label>\n      <div style=\"display:flex;gap:15px;margin-top:4px\">\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-u-read\" checked> Leitura</label>\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-u-upload\"> Upload</label>\n        <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer\"><input type=\"checkbox\" id=\"p-u-delete\"> Apagar</label>\n      </div>\n    </div>\n\n    <div class=\"form-actions\">\n      <button class=\"btn btn-secondary btn-sm\" id=\"drive-form-cancel\" type=\"button\">Cancelar</button>\n      <button class=\"btn btn-primary btn-sm\" id=\"drive-form-save\" type=\"button\">Salvar</button>\n    </div>\n  </div>");
+function renderDrivesConfig(drives, users, currentUserIsAdmin) {
+  var cols = ['', '', ''];
+  
+  drives.forEach(function(d, index) {
+    var p = d.permissions || { master: {read:true,upload:true}, user: {read:true} };
+    var byUser = p.byUser || {};
+    var colIndex = index % 3;
+
+    cols[colIndex] += '<div class="config-card drive-cfg-card" data-drive-id="' + d.id + '">' +
+              '<div class="config-card-header">' +
+                '<div class="config-card-icon" style="background:rgba(255,255,255,0.03)">' + Icons.folder + '</div>' +
+                '<div class="config-card-info">' +
+                  '<div class="config-card-name">' + escapeHtml(d.name) + '</div>' +
+                  '<div class="config-card-detail">' + escapeHtml(d.path) + '</div>' +
+                '</div>' +
+                '<div class="config-card-actions" style="position:absolute; top:20px; right:20px">' +
+                  '<button class="btn-icon cfg-del-drive" data-id="' + d.id + '" title="Remover" style="color:var(--danger); background:rgba(244,67,54,0.05)">' + Icons.trash + '</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="config-card-body">' +
+                '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px">' +
+                  '<div class="form-group"><label>Nome de Exibição</label><input class="form-input cfg-drive-name" value="' + escapeHtml(d.name) + '"></div>' +
+                  '<div class="form-group"><label>Cor do Ícone</label><div class="color-options">' +
+                    DRIVE_COLORS.map(function (c) {
+                      return '<div class="color-option ' + (c === (d.color || '#0078d4') ? 'selected' : '') + '" data-color="' + c + '" style="background:' + c + '"></div>';
+                    }).join('') +
+                  '</div></div>' +
+                '</div>' +
+                '<div class="form-group" style="margin-bottom:24px"><label>Caminho da Pasta</label>' +
+                  '<div style="display:flex;gap:8px;align-items:center">' +
+                    '<button class="btn btn-secondary btn-browse-path" style="flex:1;text-align:left;padding-left:16px;height:42px;font-weight:600;background:rgba(255,255,255,0.03);border-color:var(--border)">' + Icons.folder + ' <span style="margin-left:8px">' + escapeHtml(d.path) + '</span></button>' +
+                    '<input type="hidden" class="cfg-drive-path" value="' + escapeHtml(d.path) + '">' +
+                  '</div>' +
+                '</div>' +
+
+                (currentUserIsAdmin ? 
+                  '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Permissões de Grupo</div>' +
+                  '<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px">' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Administradores</span><span class="admin-pill">Acesso Total</span>' +
+                    '</div>' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Usuários Master</span>' +
+                      '<div style="display:flex;gap:16px">' +
+                        '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-read" ' + (p.master?.read ? 'checked' : '') + '> Leitura</label>' +
+                        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-upload" ' + (p.master?.upload ? 'checked' : '') + '> Escrita</label>' +
+                        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-delete" ' + (p.master?.delete ? 'checked' : '') + '> Apagar</label>' +
+                      '</div>' +
+                    '</div>' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Usuários Comuns</span>' +
+                      '<div style="display:flex;gap:16px">' +
+                        '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-read" ' + (p.user?.read ? 'checked' : '') + '> Leitura</label>' +
+                        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-upload" ' + (p.user?.upload ? 'checked' : '') + '> Escrita</label>' +
+                        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-delete" ' + (p.user?.delete ? 'checked' : '') + '> Apagar</label>' +
+                      '</div>' +
+                    '</div>' +
+                  '</div>' : '') +
+
+                '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+                '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto">' +
+                  (users || []).filter(function(u){return u.role !== 'admin';}).map(function(u) {
+                    var up = byUser[u.id] || (u.role === 'master' ? p.master : p.user) || {};
+                    return '<div class="card-user-row" data-user-id="' + u.id + '">' +
+                             '<div style="display:flex; flex-direction:column"><span style="font-size:13px; font-weight:500">' + escapeHtml(u.username) + '</span><span style="font-size:11px; color:var(--text-secondary)">' + (u.role === 'master' ? 'Master' : 'Usuário') + '</span></div>' +
+                             '<div style="display:flex;gap:12px">' +
+                               (currentUserIsAdmin ? '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;color:var(--accent);font-weight:600"><input type="checkbox" class="p-user-manage" ' + (up.manage ? 'checked' : '') + ' title="Permissão de gerenciamento"> Acesso</label>' : '') +
+                               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-read" ' + (up.read ? 'checked' : '') + '> Leitura</label>' +
+                               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-upload" ' + (up.upload ? 'checked' : '') + '> Escrita</label>' +
+                               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-delete" ' + (up.delete ? 'checked' : '') + '> Apagar</label>' +
+                             '</div>' +
+                           '</div>';
+                  }).join('') +
+                '</div>' +
+                '<div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px; display:flex; gap:12px">' +
+                  '<button class="btn btn-secondary btn-close-card" style="flex:1; height:44px; font-weight:600">Fechar</button>' +
+                  '<button class="btn btn-primary drive-save-btn" style="flex:2; height:44px; font-weight:700">Salvar Alterações</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+  });
+
+  // Add drive card in next col
+  var nextCol = drives.length % 3;
+  cols[nextCol] += '<div class="config-card add-drive-card" id="btn-add-drive-card" style="border: 2px dashed var(--border); background: transparent; align-items: center; justify-content: center; opacity: 0.6; min-height: 110px">' +
+            '<div class="config-card-icon" style="background:transparent; color:var(--text-muted)">' + Icons.add + '</div>' +
+            '<div style="font-weight:600; color:var(--text-muted); margin-top:10px">Adicionar Novo Drive</div>' +
+          '</div>';
+
+  var html = '<div class="config-columns">' +
+               '<div class="config-column">' + cols[0] + '</div>' +
+               '<div class="config-column">' + cols[1] + '</div>' +
+               '<div class="config-column">' + cols[2] + '</div>' +
+             '</div>';
+  
+  html += '<div id="new-drive-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center">' +
+            '<div class="config-panel" style="width:90%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; border-radius:24px; background:var(--bg-surface)">' +
+              '<div class="config-header" style="border-bottom:1px solid var(--border); padding:20px 24px"><h2>' + Icons.add + ' Novo Drive</h2><button class="btn-icon" id="close-new-drive-modal">' + Icons.close + '</button></div>' +
+              '<div style="padding:24px" id="new-drive-form-container"></div>' +
+            '</div>' +
+          '</div>';
+
   return html;
 }
 
 function renderUsersConfig(users) {
-  var html = '';
-  for (var i = 0; i < users.length; i++) {
-    var u = users[i];
+  var cols = ['', '', ''];
+  var role = getUserRole();
+  var isAdmin = role === 'admin';
+
+  users.forEach(function(u, index) {
+    // SECURITY: Master users NEVER see Admins in the list (double-layer protection)
+    if (role === 'master' && u.role === 'admin') return;
+
+    var colIndex = index % 3;
     var badgeClass = u.role === 'admin' ? 'badge-admin' : u.role === 'master' ? 'badge-master' : 'badge-user';
     var badgeLabel = u.role === 'admin' ? 'Admin' : u.role === 'master' ? 'Master' : 'Usuário';
-    html += '<div class="config-item">' + '<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center">' + Icons.user + '</div>' + '<div class="config-item-info">' + '<div class="config-item-name">' + escapeHtml(u.username) + ' <span class="badge ' + badgeClass + '">' + badgeLabel + '</span></div>' + '<div class="config-item-detail">Criado em ' + formatDate(u.createdAt) + '</div>' + '</div>' + '<div class="config-item-actions">' + '<button class="btn-icon cfg-edit-user" data-id="' + u.id + '" data-username="' + escapeHtml(u.username) + '" data-role="' + u.role + '" title="Editar">' + Icons.edit + '</button>' + '<button class="btn-icon cfg-del-user" data-id="' + u.id + '" title="Remover">' + Icons.trash + '</button>' + '</div>' + '</div>';
-  }
-  html += `<div class="config-form" id="user-form">
-    <h3 id="user-form-title">Adicionar Usuário</h3>
-    <input type="hidden" id="user-edit-id">
-    <div id="cfg-user-error" style="color:var(--danger);font-size:12px;margin-bottom:12px;display:none"></div>
-    <div class="form-group"><label>Nome de Usuário</label><input class="form-input" id="cfg-user-name" placeholder="nome"></div>
-    <div class="form-group">
-      <label>Senha</label>
-      <input class="form-input" id="cfg-user-pass" type="password" placeholder="••••••••">
-      <small style="color:var(--text-muted);font-size:11px;margin-top:4px;display:block">Mínimo de 4 caracteres</small>
-    </div>
-    <div class="form-group"><label>Tipo</label>
-      <select class="form-input" id="cfg-user-role">
-        <option value="user">Usuário (somente leitura)</option>
-        <option value="master">Master (ler + enviar)</option>
-        <option value="admin">Administrador (tudo)</option>
-      </select>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-secondary btn-sm" id="user-form-cancel" type="button">Cancelar</button>
-      <button class="btn btn-primary btn-sm" id="user-form-save" type="button">Salvar</button>
-    </div>
-  </div>`;
+    
+    // Master can edit anyone EXCEPT Admins and themselves
+    var canEdit = isAdmin || (role === 'master' && u.role !== 'admin' && u.id !== window.app.user.id);
+    
+    var cardHtml = '<div class="config-card user-cfg-card" data-user-id="' + u.id + '">' +
+              '<div class="config-card-header">' +
+                '<div class="config-card-icon" style="background:rgba(255,255,255,0.03); color:var(--accent)">' + Icons.user + '</div>' +
+                '<div class="config-card-info">' +
+                  '<div class="config-card-name">' + escapeHtml(u.username) + ' <span class="badge ' + badgeClass + '">' + badgeLabel + '</span></div>' +
+                  '<div class="config-card-detail">Criado em ' + formatDate(u.createdAt) + '</div>' +
+                '</div>' +
+                '<div class="config-card-actions" style="position:absolute; top:20px; right:20px">' +
+                  (canEdit ? '<button class="btn-icon cfg-del-user" data-id="' + u.id + '" title="Remover" style="color:var(--danger); background:rgba(244,67,54,0.05)">' + Icons.trash + '</button>' : '') +
+                '</div>' +
+              '</div>' +
+              '<div class="config-card-body">' +
+                '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Editar Usuário</div>' +
+                '<div class="form-group"><label>Novo Nome (Opcional)</label><input class="form-input cfg-edit-name" value="' + escapeHtml(u.username) + '"></div>' +
+                (role === 'master' ? '<div class="form-group"><label>Senha Atual (Obrigatória)</label><input class="form-input cfg-edit-old-pass" type="password" placeholder="Senha atual deste usuário"></div>' : '') +
+                '<div class="form-group"><label>Nova Senha</label><input class="form-input cfg-edit-pass" type="password" placeholder="Deixe em branco para manter"></div>' +
+                '<div class="form-group"><label>Tipo de Conta</label>' +
+                  '<select class="form-input cfg-edit-role">' +
+                    '<option value="user" ' + (u.role === 'user' ? 'selected' : '') + '>Usuário (somente leitura)</option>' +
+                    '<option value="master" ' + (u.role === 'master' ? 'selected' : '') + '>Master (ler + enviar)</option>' +
+                    (isAdmin ? '<option value="admin" ' + (u.role === 'admin' ? 'selected' : '') + '>Administrador (tudo)</option>' : '') +
+                  '</select>' +
+                '</div>' +
+                '<div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px; display:flex; gap:12px">' +
+                  '<button class="btn btn-secondary btn-close-card" style="flex:1; height:44px; font-weight:600">Fechar</button>' +
+                  '<button class="btn btn-primary user-save-btn" data-id="' + u.id + '" style="flex:2; height:44px; font-weight:700">Salvar Alterações</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+    cols[colIndex] += cardHtml;
+  });
+
+  // Add User Card
+  var nextCol = users.length % 3;
+  cols[nextCol] += '<div class="config-card add-user-card" id="btn-add-user-card" style="border: 2px dashed var(--border); background: transparent; align-items: center; justify-content: center; opacity: 0.6; min-height: 110px">' +
+            '<div class="config-card-icon" style="background:transparent; color:var(--text-muted)">' + Icons.add + '</div>' +
+            '<div style="font-weight:600; color:var(--text-muted); margin-top:10px">Adicionar Novo Usuário</div>' +
+          '</div>';
+
+  var html = '<div class="config-columns">' +
+               '<div class="config-column">' + cols[0] + '</div>' +
+               '<div class="config-column">' + cols[1] + '</div>' +
+               '<div class="config-column">' + cols[2] + '</div>' +
+             '</div>';
+
+  // Add User Modal
+  html += '<div id="new-user-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center">' +
+            '<div class="config-panel" style="width:90%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; border-radius:24px; background:var(--bg-surface)">' +
+              '<div class="config-header" style="border-bottom:1px solid var(--border); padding:20px 24px"><h2>' + Icons.add + ' Novo Usuário</h2><button class="btn-icon" id="close-new-user-modal">' + Icons.close + '</button></div>' +
+              '<div style="padding:24px">' +
+                '<div id="cfg-new-user-error" style="color:var(--danger);font-size:12px;margin-bottom:12px;display:none"></div>' +
+                '<div class="form-group"><label>Nome de Usuário</label><input class="form-input" id="new-user-name" placeholder="Ex: joao"></div>' +
+                '<div class="form-group"><label>Senha</label><input class="form-input" id="new-user-pass" type="password" placeholder="••••••••"></div>' +
+                '<div class="form-group"><label>Tipo</label>' +
+                  '<select class="form-input" id="new-user-role">' +
+                    '<option value="user">Usuário (somente leitura)</option>' +
+                    '<option value="master">Master (ler + enviar)</option>' +
+                    (isAdmin ? '<option value="admin">Administrador (tudo)</option>' : '') +
+                  '</select>' +
+                '</div>' +
+                '<div class="form-actions" style="margin-top:24px">' +
+                  '<button class="btn btn-primary" id="btn-save-new-user" style="width:100%; height:48px; font-weight:700">Criar Usuário</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
   return html;
 }
 
@@ -244,6 +382,74 @@ function renderCamerasConfig(serverConfig) {
       '<button class="btn btn-primary" id="cam-config-save" style="width:100%">Salvar Configurações de Câmeras</button>' +
     '</div>' +
     '</div>';
+}
+
+function renderAppsConfig(apps, isAdmin) {
+  if (!apps || !apps.length) {
+    return '<div style="text-align:center;padding:40px;color:var(--text-muted)"><p>Nenhum app instalado</p></div>';
+  }
+
+  var cols = ['', '', ''];
+
+  for (var i = 0; i < apps.length; i++) {
+    var app = apps[i];
+    var colIndex = i % 3;
+    var perms = app.permissions || { byRole: {}, byUser: {} };
+    var rolePerms = perms.byRole || {};
+    var icon = Icons[app.icon] || Icons[app.id] || Icons.folder;
+    
+    var cardHtml = '<div class="config-card app-cfg-card" data-app-id="' + app.id + '">' +
+              '<div class="config-card-header">' +
+                '<div class="config-card-icon" style="background:rgba(255,255,255,0.03); color:var(--accent-blue)">' + icon + '</div>' +
+                '<div class="config-card-info">' +
+                  '<div class="config-card-name">' + escapeHtml(app.name) + '</div>' +
+                  '<div class="config-card-detail">' + escapeHtml(app.description) + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="config-card-body">' +
+                (isAdmin ? 
+                  '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso por Grupo</div>' +
+                  '<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px">' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Administradores</span><span class="admin-pill">Acesso Automático</span>' +
+                    '</div>' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Usuários Master</span>' +
+                      '<label class="switch" style="transform:scale(0.8)"><input type="checkbox" class="app-role-toggle" data-app-id="' + app.id + '" data-role="master" ' + (rolePerms.master ? 'checked' : '') + '><span class="slider"></span></label>' +
+                    '</div>' +
+                    '<div class="card-perm-row">' +
+                      '<span style="font-size:13px">Usuários Comuns</span>' +
+                      '<label class="switch" style="transform:scale(0.8)"><input type="checkbox" class="app-role-toggle" data-app-id="' + app.id + '" data-role="user" ' + (rolePerms.user ? 'checked' : '') + '><span class="slider"></span></label>' +
+                    '</div>' +
+                  '</div>' : '') +
+
+                (app.users && app.users.length > 0 ? 
+                  '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+                  '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto">' +
+                    app.users.map(function(user) {
+                      var isAdmin = user.role === 'admin';
+                      return '<div class="card-user-row">' +
+                               '<div style="display:flex; flex-direction:column"><span style="font-size:13px; font-weight:500">' + escapeHtml(user.username) + '</span><span style="font-size:11px; color:var(--text-secondary)">' + (user.role === 'master' ? 'Master' : 'Usuário') + '</span></div>' +
+                               (isAdmin ? '<span style="font-size:11px; color:#0fa36b; font-weight:600">Automático</span>' : 
+                                 '<label class="switch" style="transform:scale(0.8)"><input type="checkbox" class="app-user-toggle" data-app-id="' + app.id + '" data-user-id="' + user.id + '" ' + (user.hasAccess ? 'checked' : '') + '><span class="slider"></span></label>'
+                               ) +
+                             '</div>';
+                    }).join('') +
+                  '</div>' : '') +
+                
+                '<div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px">' +
+                  '<button class="btn btn-secondary btn-close-card" style="width:100%; height:44px; font-weight:600">Fechar</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+    cols[colIndex] += cardHtml;
+  }
+
+  return '<div class="config-columns">' +
+           '<div class="config-column">' + cols[0] + '</div>' +
+           '<div class="config-column">' + cols[1] + '</div>' +
+           '<div class="config-column">' + cols[2] + '</div>' +
+         '</div>';
 }
 
 function getTimeDiff(dateStr) {

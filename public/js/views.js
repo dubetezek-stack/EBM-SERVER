@@ -27,22 +27,36 @@ function renderExplorer(user) {
           '</div>' + 
           '<div class="user-badge-details">' + (user.ip || '---') + ' • ' + (user.mac || '---') + '</div>' + 
         '</div>' + 
-        (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + 
+        (isMasterPlus ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + 
         '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + 
       '</div>' + 
     '</div>' + 
     '<div class="toolbar">' + 
       '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + 
       '<button class="toolbar-btn" id="btn-upload" style="display:none">' + Icons.upload + ' <span>Upload</span></button>' + 
-      '<button class="toolbar-btn" id="btn-speedtest" style="background:var(--accent-blue);color:#fff;font-weight:600;gap:8px">' + Icons.speed + ' <span>Speed Test</span></button>' + 
-      (isMasterPlus ? '<button class="toolbar-btn" id="btn-cameras" style="background:var(--accent-green);color:#fff;font-weight:600;gap:8px">' + Icons.camera + ' <span>Câmeras</span></button>' : '') + 
     '</div>' + 
+    renderUploadZone() +
     '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
     renderDock() +
   '</div>';
 }
 function renderSpeedTestView() {
-  return '<div class="speedtest-view" style="height: 100%; min-height: 500px; border-radius: var(--radius); overflow: hidden; background: #000;">' + '<iframe src="/speedtest/index.html" style="width:100%; height:100%; border:none;"></iframe>' + '</div>';
+  return '<div class="app-page-view">' +
+           '<div class="app-page-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+             '<div style="display:flex;align-items:center;gap:12px">' +
+               '<div style="color:var(--accent-blue);font-size:24px">' + Icons.speed + '</div>' +
+               '<div>' +
+                 '<div style="font-size:18px;font-weight:700">Speed Test</div>' +
+                 '<div style="font-size:12px;color:var(--text-secondary)">Teste a velocidade da sua rede local</div>' +
+               '</div>' +
+             '</div>' +
+             '<button class="btn-icon" id="btn-app-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
+           '</div>' +
+           '<div class="app-page-content" style="flex:1;padding:24px;background:#000">' +
+             '<iframe src="/speedtest/index.html" style="width:100%; height:100%; border:none; border-radius:12px"></iframe>' +
+           '</div>' +
+           renderDock() +
+         '</div>';
 }
 function renderCamerasView() {
   var gridHtml = '';
@@ -52,7 +66,7 @@ function renderCamerasView() {
                 '</div>';
   }
 
-  return '<div class="cameras-view" style="display:flex;flex-direction:column;gap:16px;height:100%">' +
+  var content = '<div class="cameras-view" style="display:flex;flex-direction:column;gap:16px;height:100%">' +
            '<div class="cameras-header" style="background:var(--bg-secondary);padding:12px 16px;border-radius:var(--radius);border:1px solid var(--border);display:flex;flex-direction:column;gap:12px">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;padding:0 8px">' +
               '<div style="font-size:14px;font-weight:600">Monitoramento ao Vivo</div>' +
@@ -74,6 +88,23 @@ function renderCamerasView() {
            '<div id="cam-grid-container" style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;padding:4px;background:#000;border-radius:var(--radius)">' +
              gridHtml +
            '</div>' +
+         '</div>';
+
+  return '<div class="app-page-view">' +
+           '<div class="app-page-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+             '<div style="display:flex;align-items:center;gap:12px">' +
+               '<div style="color:var(--accent-green);font-size:24px">' + Icons.camera + '</div>' +
+               '<div>' +
+                 '<div style="font-size:18px;font-weight:700">Câmeras</div>' +
+                 '<div style="font-size:12px;color:var(--text-secondary)">Monitoramento de câmeras ao vivo</div>' +
+               '</div>' +
+             '</div>' +
+             '<button class="btn-icon" id="btn-app-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
+           '</div>' +
+           '<div class="app-page-content" style="flex:1;overflow-y:auto;padding:24px">' +
+             content +
+           '</div>' +
+           renderDock() +
          '</div>';
 }
 function renderDrives(drives) {
@@ -123,12 +154,10 @@ function renderFileList(files, driveId, subpath, drivePermissions) {
   // Resolve granular permission for current user
   var canDelete = isAdmin;
   if (!isAdmin && drivePermissions) {
-    var p = drivePermissions;
-    if (role === 'master') canDelete = !!(p.master && p.master.delete);
-    else if (role === 'user') canDelete = !!(p.user && p.user.delete);
-  } else if (!isAdmin && !drivePermissions) {
-    // Default fallback if no permissions object (older config)
-    canDelete = role === 'master';
+    canDelete = !!drivePermissions.delete;
+  } else if (!isAdmin && role === 'master') {
+    // If no specific permission object found, fallback to role default
+    canDelete = true; 
   }
 
   var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (canDelete ? '<th style="width:40px"></th>' : '') + '</tr></thead><tbody>';
@@ -147,21 +176,26 @@ function renderUploadZone() {
 
 function renderDesktopIcons(installedApps) {
   var appsHtml = '';
-  // "Meu Servidor" icon (always first)
-  appsHtml += '<div class="desktop-icon" id="icon-explorer">' +
-                '<div class="icon-wrapper" style="background:#0078d4">' + Icons.monitor + '</div>' +
-                '<span>Meu Servidor</span>' +
-              '</div>';
+  var hasExplorer = installedApps.find(function(a){return a.id === 'explorer';});
+
+  // "Meu Servidor" icon (always first if permitted)
+  if (hasExplorer) {
+    appsHtml += '<div class="desktop-icon" id="icon-explorer">' +
+                  '<div class="icon-wrapper" style="background:#0078d4">' + Icons.monitor + '</div>' +
+                  '<span>Meu Servidor</span>' +
+                '</div>';
+  }
 
   installedApps.forEach(function(app) {
-    if (app.id === 'explorer') return; // Skip explorer as it's already there as "Meu Servidor"
-    var icon = Icons[app.icon] || Icons.file;
+    if (app.id === 'explorer') return; // Skip explorer as it's already handled
+    var icon = Icons[app.icon] || Icons[app.id] || Icons.file;
     // Umbrel apps often have a specific background color
     var bg = '#1c1c1e';
     if (app.id === 'speedtest') bg = 'var(--accent-blue)';
     else if (app.id === 'cameras') bg = 'var(--accent-green)';
     else if (app.id === 'plex') bg = '#E5A00D';
     else if (app.id === 'homeassistant') bg = '#03A9F4';
+    else if (app.id === 'settings') bg = '#333';
 
     appsHtml += '<div class="desktop-icon" data-app-id="' + app.id + '">' +
                   '<div class="icon-wrapper" style="background:' + bg + '">' + icon + '</div>' +
@@ -201,14 +235,28 @@ function getGreeting() {
 }
 
 function renderDock() {
+  var role = getUserRole();
+  var isMasterPlus = role === 'master' || role === 'admin';
+  var roleLabel = (role === 'admin' ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'USUÁRIO'));
+  
+  var hasExplorer = true;
+  var hasSettings = isMasterPlus;
+  if (window.app && window.app.apps) {
+    hasExplorer = !!window.app.apps.find(function(a){return a.id === 'explorer';});
+    hasSettings = !!window.app.apps.find(function(a){return a.id === 'settings';});
+  }
+
   return '<div class="dock-container">' +
            '<div class="dock">' +
-             '<div class="dock-item" data-view="home" id="dock-home" title="Início">' + Icons.home + '</div>' +
-             '<div class="dock-item" data-view="files" id="dock-explorer" title="Arquivos">' + Icons.folder + '</div>' +
-             '<div class="dock-item" data-view="store" id="dock-appstore" title="App Store">' + Icons.appstore + '</div>' +
-             '<div class="dock-divider"></div>' +
-             '<div class="dock-item" data-view="settings" id="dock-settings" title="Configurações">' + Icons.settings + '</div>' +
-             '<div class="dock-item" data-view="logout" id="dock-logout" title="Sair">' + Icons.logout + '</div>' +
+             '<div class="dock-content">' +
+               '<div class="dock-item" data-view="home" id="dock-home" title="Início">' + Icons.home + '</div>' +
+               (hasExplorer ? '<div class="dock-item" data-view="files" id="dock-explorer" title="Arquivos">' + Icons.folder + '</div>' : '') +
+               '<div class="dock-item" data-view="store" id="dock-appstore" title="App Store">' + Icons.appstore + '</div>' +
+               '<div class="dock-divider"></div>' +
+               (hasSettings ? '<div class="dock-item" data-view="settings" id="dock-settings" title="Configurações">' + Icons.settings + '</div>' : '') +
+               '<div class="dock-item" data-view="logout" id="dock-logout" title="Sair">' + Icons.logout + '</div>' +
+             '</div>' +
+             '<div class="dock-user-type ' + role + '">' + roleLabel + '</div>' +
            '</div>' +
          '</div>';
 }
@@ -233,11 +281,143 @@ function renderAppStore(availableApps, installedIds) {
   });
 
   return '<div class="app-store-view">' +
-           '<div class="app-store-header">' +
+           '<div class="app-store-header" style="position:relative">' +
              '<h2>App Store</h2>' +
              '<p>Descubra e instale novos aplicativos no seu servidor</p>' +
+             '<button class="btn-icon" id="btn-store-close" style="position:absolute;top:20px;right:20px">' + Icons.close + '</button>' +
            '</div>' +
            '<div class="app-store-grid">' + appsHtml + '</div>' +
            renderDock() +
+         '</div>';
+}
+
+function renderAppsConfig(apps) {
+  var html = '<div class="config-grid">';
+  apps.forEach(function(app) {
+    var p = app.permissions || { byRole: {} };
+    var icon = Icons[app.icon] || Icons.file;
+    
+    html += '<div class="config-card app-cfg-card" data-app-id="' + app.id + '">' +
+              '<div class="config-card-header">' +
+                '<div class="config-card-icon">' + icon + '</div>' +
+                '<div class="config-card-info">' +
+                  '<div class="config-card-name">' + escapeHtml(app.name) + '</div>' +
+                  '<div class="config-card-detail">ID: ' + app.id + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="config-card-body">' +
+                '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso por Grupo</div>' +
+                '<div style="display:flex; flex-direction:column; margin-bottom:24px">' +
+                  '<div class="card-perm-row">' +
+                    '<span style="font-size:13px; color:var(--text-secondary)">Administradores</span>' +
+                    '<span class="admin-pill">Acesso Automático</span>' +
+                  '</div>' +
+                  '<div class="card-perm-row">' +
+                    '<span style="font-size:13px">Usuários Master</span>' +
+                    '<label class="switch"><input type="checkbox" class="app-role-toggle" data-app-id="' + app.id + '" data-role="master" ' + (p.byRole?.master !== false ? 'checked' : '') + '><span class="slider"></span></label>' +
+                  '</div>' +
+                  '<div class="card-perm-row">' +
+                    '<span style="font-size:13px">Usuários Comuns</span>' +
+                    '<label class="switch"><input type="checkbox" class="app-role-toggle" data-app-id="' + app.id + '" data-role="user" ' + (p.byRole?.user !== false ? 'checked' : '') + '><span class="slider"></span></label>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+                '<div class="app-user-list" style="display:flex; flex-direction:column; max-height:240px; overflow-y:auto; gap:4px">' +
+                  (app.users || []).map(function(u) {
+                    return '<div class="card-user-row">' +
+                             '<div style="display:flex; flex-direction:column">' +
+                               '<span style="font-size:13px; font-weight:500; color:var(--text-primary)">' + escapeHtml(u.username) + '</span>' +
+                               '<span style="font-size:11px; color:var(--text-secondary)">' + (u.role === 'master' ? 'Master' : 'Usuário') + '</span>' +
+                             '</div>' +
+                             '<label class="switch"><input type="checkbox" class="app-user-toggle" data-app-id="' + app.id + '" data-user-id="' + u.id + '" ' + (u.hasAccess ? 'checked' : '') + '><span class="slider"></span></label>' +
+                           '</div>';
+                  }).join('') +
+                '</div>' +
+                '<div style="margin-top:24px; border-top:1px solid var(--border); padding-top:20px; display:flex; gap:12px">' +
+                  '<button class="btn btn-secondary btn-close-card" style="flex:1; height:44px; font-weight:600">Fechar</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderBrowseDialog(drives) {
+  var drivesHtml = '';
+  if (drives && drives.length) {
+    drives.forEach(function(d) {
+      var usedPct = d.total ? Math.round((d.total - d.free) / d.total * 100) : 0;
+      var barColor = usedPct > 90 ? 'var(--danger)' : 'var(--accent-blue)';
+      var freeText = formatSize(d.free) + ' livre(s) de ' + formatSize(d.total);
+      
+      drivesHtml += '<div class="browse-drive-item" data-path="' + escapeHtml(d.path) + '" style="background:var(--bg-secondary);padding:12px;border-radius:8px;border:1px solid var(--border);display:flex;gap:12px;cursor:pointer;margin-bottom:10px">' +
+                      '<div style="color:var(--accent);font-size:24px">' + Icons.drive('#0078d4') + '</div>' +
+                      '<div style="flex:1">' +
+                        '<div style="font-weight:600;font-size:13px">' + escapeHtml(d.name) + ' (' + d.path.replace('\\','') + ')</div>' +
+                        '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:20px;margin:6px 0;overflow:hidden">' +
+                          '<div style="height:100%;background:' + barColor + ';width:' + usedPct + '%"></div>' +
+                        '</div>' +
+                        '<div style="font-size:11px;color:var(--text-secondary)">' + freeText + '</div>' +
+                      '</div>' +
+                    '</div>';
+    });
+  }
+
+  return '<div class="browse-dialog-overlay" id="browse-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center">' +
+           '<div class="browse-dialog" style="width:90%;max-width:500px;background:var(--bg-primary);border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;max-height:80vh">' +
+             '<div class="browse-header" style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+               '<h3 style="margin:0">Selecionar Pasta</h3>' +
+               '<button class="btn-icon" id="browse-close">' + Icons.close + '</button>' +
+             '</div>' +
+             '<div class="browse-breadcrumb" id="browse-breadcrumb" style="padding:8px 20px;background:var(--bg-secondary);font-size:12px;border-bottom:1px solid var(--border);color:var(--text-secondary)">Drives</div>' +
+             '<div class="selected-path-banner" style="padding:10px 20px;background:rgba(0,120,212,0.1);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">' +
+               '<span style="font-size:11px;font-weight:600;color:var(--accent-blue);text-transform:uppercase">Selecionado:</span>' +
+               '<span id="browse-selected-path" style="font-size:12px;color:#fff;word-break:break-all">Nenhum</span>' +
+             '</div>' +
+             '<div class="browse-content" id="browse-content" style="padding:20px;overflow-y:auto;flex:1">' +
+               drivesHtml +
+             '</div>' +
+             '<div class="browse-footer" style="padding:16px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px">' +
+               '<button class="btn btn-secondary btn-sm" id="browse-cancel">Cancelar</button>' +
+               '<button class="btn btn-primary btn-sm" id="browse-select">Selecionar Pasta</button>' +
+             '</div>' +
+           '</div>' +
+         '</div>';
+}
+
+function renderNewDriveForm(users, currentUserIsAdmin) {
+  var usersList = (users || []).filter(function(u){return u.role !== 'admin';}).map(function(u) {
+    return '<div class="card-user-row" data-user-id="' + u.id + '">' +
+             '<div style="display:flex; flex-direction:column"><span style="font-size:13px; font-weight:500">' + escapeHtml(u.username) + '</span><span style="font-size:11px; color:var(--text-secondary)">' + (u.role === 'master' ? 'Master' : 'Usuário') + '</span></div>' +
+             '<div style="display:flex;gap:12px">' +
+               (currentUserIsAdmin ? '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;color:var(--accent);font-weight:600"><input type="checkbox" class="p-user-manage"> Acesso</label>' : '') +
+               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-read" checked> Leitura</label>' +
+               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-upload"> Escrita</label>' +
+               '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-user-delete"> Apagar</label>' +
+             '</div>' +
+           '</div>';
+  }).join('');
+
+  return '<div class="form-group"><label>Nome de Exibição</label><input class="form-input" id="new-drive-name" placeholder="Ex: Meu Servidor"></div>' +
+         '<div class="form-group"><label>Caminho da Pasta</label>' +
+           '<div style="display:flex;gap:8px;align-items:center">' +
+             '<button class="btn btn-secondary" id="btn-browse-new" style="flex:1;text-align:center;height:38px;font-weight:600">Escolher Pasta...</button>' +
+             '<input type="hidden" id="new-drive-path">' +
+           '</div>' +
+         '</div>' +
+         '<div class="form-group"><label>Cor</label><div class="color-options" id="new-drive-colors">' +
+           DRIVE_COLORS.map(function (c, i) {
+             return '<div class="color-option ' + (i === 0 ? 'selected' : '') + '" data-color="' + c + '" style="background:' + c + '"></div>';
+           }).join('') +
+         '</div></div>' +
+         '<div style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px">' +
+           '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+           '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto" id="new-drive-permissions">' +
+             usersList +
+           '</div>' +
+         '</div>' +
+         '<div class="form-actions" style="margin-top:30px">' +
+           '<button class="btn btn-primary" id="save-new-drive" style="width:100%">Adicionar Drive</button>' +
          '</div>';
 }

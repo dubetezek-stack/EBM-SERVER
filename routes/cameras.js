@@ -6,6 +6,7 @@ const { authenticate } = require('../middleware/auth');
 const { getConfig } = require('../middleware/auth');
 const { spawn } = require('child_process');
 const WebSocket = require('ws');
+const { readJSON, DATA_DIR } = require('../utils/storage');
 
 // Store active ffmpeg processes
 const activeStreams = new Map();
@@ -35,8 +36,33 @@ function initCameraWS(server) {
       const decoded = jwt.verify(token, config.jwtSecret);
       const user = getUsers().find(u => u.id === decoded.id);
       
-      if (!user || (user.role !== 'admin' && user.role !== 'master')) {
+      if (!user) {
         ws.send(JSON.stringify({ error: 'Acesso negado' }));
+        ws.close();
+        return;
+      }
+
+      // Check if user has permission for the 'cameras' app
+      const appsConfigPath = path.join(DATA_DIR, 'apps.json');
+      const appsConfig = readJSON(appsConfigPath);
+      const camPerm = appsConfig?.permissions?.cameras;
+      
+      let hasAccess = false;
+      if (user.role === 'admin') {
+        hasAccess = true;
+      } else if (camPerm) {
+        if (camPerm.byUser && user.id in camPerm.byUser) {
+          hasAccess = camPerm.byUser[user.id] === true;
+        } else {
+          hasAccess = camPerm.byRole && camPerm.byRole[user.role] === true;
+        }
+      } else {
+        // Default: only admin/master if no permissions defined
+        hasAccess = user.role === 'admin' || user.role === 'master';
+      }
+
+      if (!hasAccess) {
+        ws.send(JSON.stringify({ error: 'Acesso negado: sem permissão para câmeras' }));
         ws.close();
         return;
       }

@@ -82,9 +82,6 @@ var API = {
       
       xhr.send(fetchOptions.body || null);
     }).catch(function (e) {
-      if (e.message && e.message.indexOf('Erro') < 0 && e.message.indexOf('requisição') < 0) {
-        throw new Error('Erro de conexão com o servidor');
-      }
       throw e;
     });
   },

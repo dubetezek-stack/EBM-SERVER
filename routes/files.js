@@ -9,10 +9,45 @@ const { authenticate, requireMaster, isProtectedPath, getConfig } = require('../
 router.use(authenticate);
 
 // Resolve and validate path against configured drives
-function resolvePath(driveId, subpath) {
+function getDrivePermissions(drive, user) {
+  if (user.role === 'admin') return { read: true, upload: true, delete: true };
+  
+  const defaults = { 
+    master: { read: true, upload: true, delete: true },
+    user: { read: true, upload: false, delete: false }
+  };
+
+  const p = drive.permissions || defaults;
+
+  // Check individual permission first
+  if (p.byUser && p.byUser[user.id]) {
+    const up = p.byUser[user.id];
+    // Ensure we have all keys even in individual permission
+    return {
+      read: up.read === undefined ? true : !!up.read,
+      upload: up.upload === undefined ? (user.role === 'admin' || user.role === 'master') : !!up.upload,
+      delete: up.delete === undefined ? (user.role === 'admin') : !!up.delete
+    };
+  }
+
+  // Fallback to role-based from the drive config or global defaults
+  const rolePerms = (user.role === 'master' ? (p.master || defaults.master) : (p.user || defaults.user));
+  
+  // Explicitly merge with defaults to avoid undefined keys
+  const roleDefaults = user.role === 'master' ? defaults.master : defaults.user;
+  return {
+    read: rolePerms.read === undefined ? roleDefaults.read : !!rolePerms.read,
+    upload: rolePerms.upload === undefined ? roleDefaults.upload : !!rolePerms.upload,
+    delete: rolePerms.delete === undefined ? roleDefaults.delete : !!rolePerms.delete
+  };
+}
+
+function resolvePath(driveId, subpath, user) {
   const config = getConfig();
   const drive = (config.drives || []).find(d => d.id === driveId);
   if (!drive) return null;
+
+  const permissions = getDrivePermissions(drive, user);
 
   const basePath = path.resolve(drive.path);
   const fullPath = subpath ? path.resolve(basePath, subpath) : basePath;
@@ -20,7 +55,7 @@ function resolvePath(driveId, subpath) {
   // Security: prevent path traversal
   if (!fullPath.startsWith(basePath)) return null;
 
-  return { fullPath, drive, basePath };
+  return { fullPath, drive, basePath, permissions };
 }
 
 // List drives with disk space info
@@ -30,15 +65,8 @@ router.get('/drives', async (req, res) => {
   const userRole = req.user.role;
 
   for (const drive of (config.drives || [])) {
-    // Permission Check: Read
-    if (userRole !== 'admin') {
-      const p = drive.permissions || { 
-        master: { read: true, upload: true, delete: true },
-        user: { read: true, upload: false, delete: false }
-      };
-      const canRead = userRole === 'master' ? (p.master && p.master.read) : (p.user && p.user.read);
-      if (!canRead) continue;
-    }
+    const permissions = getDrivePermissions(drive, req.user);
+    if (!permissions.read) continue;
 
     let diskInfo = null;
     try {
@@ -65,7 +93,7 @@ router.get('/drives', async (req, res) => {
       disk: diskInfo,
       accessible,
       // Pass permissions to frontend to hide/show UI buttons
-      permissions: drive.permissions
+      permissions: permissions
     });
   }
 
@@ -79,18 +107,10 @@ router.get('/list', (req, res) => {
   
   if (!driveId) return res.status(400).json({ error: 'driveId é obrigatório' });
 
-  const resolved = resolvePath(driveId, subpath || '');
+  const resolved = resolvePath(driveId, subpath || '', req.user);
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
-  // Permission Check: Read
-  if (userRole !== 'admin') {
-    const p = resolved.drive.permissions || { 
-      master: { read: true, upload: true, delete: true },
-      user: { read: true, upload: false, delete: false }
-    };
-    const canRead = userRole === 'master' ? (p.master && p.master.read) : (p.user && p.user.read);
-    if (!canRead) return res.status(403).json({ error: 'Você não possui permissão de leitura para este drive' });
-  }
+  if (!resolved.permissions.read) return res.status(403).json({ error: 'Você não possui permissão de leitura para este drive' });
 
   try {
     if (!fs.existsSync(resolved.fullPath)) {
@@ -129,7 +149,7 @@ router.get('/list', (req, res) => {
       driveName: resolved.drive.name,
       subpath: subpath || '',
       files,
-      permissions: resolved.drive.permissions
+      permissions: resolved.permissions
     });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao listar: ' + e.message });
@@ -139,15 +159,10 @@ router.get('/list', (req, res) => {
 // Download/Preview use resolvePath which is already safe, but let's add the Read check
 router.get('/download', (req, res) => {
   const { driveId, subpath } = req.query;
-  const userRole = req.user.role;
-  const resolved = resolvePath(driveId, subpath);
+  const resolved = resolvePath(driveId, subpath, req.user);
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
-  if (userRole !== 'admin') {
-    const p = resolved.drive.permissions || { master: { read: true }, user: { read: true } };
-    const canRead = userRole === 'master' ? (p.master && p.master.read) : (p.user && p.user.read);
-    if (!canRead) return res.status(403).json({ error: 'Acesso negado' });
-  }
+  if (!resolved.permissions.read) return res.status(403).json({ error: 'Acesso negado' });
 
   if (!fs.existsSync(resolved.fullPath) || fs.statSync(resolved.fullPath).isDirectory()) {
     return res.status(404).json({ error: 'Arquivo não encontrado' });
@@ -158,15 +173,10 @@ router.get('/download', (req, res) => {
 
 router.get('/preview', (req, res) => {
   const { driveId, subpath } = req.query;
-  const userRole = req.user.role;
-  const resolved = resolvePath(driveId, subpath);
+  const resolved = resolvePath(driveId, subpath, req.user);
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
-  if (userRole !== 'admin') {
-    const p = resolved.drive.permissions || { master: { read: true }, user: { read: true } };
-    const canRead = userRole === 'master' ? (p.master && p.master.read) : (p.user && p.user.read);
-    if (!canRead) return res.status(403).json({ error: 'Acesso negado' });
-  }
+  if (!resolved.permissions.read) return res.status(403).json({ error: 'Acesso negado' });
 
   if (!fs.existsSync(resolved.fullPath) || fs.statSync(resolved.fullPath).isDirectory()) {
     return res.status(404).json({ error: 'Arquivo não encontrado' });
@@ -216,15 +226,11 @@ const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
       const { driveId, subpath } = req.query;
-      const resolved = resolvePath(driveId, subpath || '');
+      const resolved = resolvePath(driveId, subpath || '', req.user);
       if (!resolved || !fs.existsSync(resolved.fullPath)) return cb(new Error('Destino inválido'));
       
-      // Permission Check: Upload
-      const userRole = req.user.role;
-      if (userRole !== 'admin') {
-        const p = resolved.drive.permissions || { master: { upload: true }, user: { upload: false } };
-        const canUpload = userRole === 'master' ? (p.master && p.master.upload) : (p.user && p.user.upload);
-        if (!canUpload) return cb(new Error('Você não possui permissão para enviar arquivos para este drive'));
+      if (!resolved.permissions.upload) {
+        return cb(new Error('Você não possui permissão para enviar arquivos para este drive'));
       }
       cb(null, resolved.fullPath);
     },
@@ -242,7 +248,7 @@ const upload = multer({
 
 router.post('/upload', (req, res) => {
   const { driveId, subpath } = req.query;
-  const resolved = resolvePath(driveId, subpath || '');
+  const resolved = resolvePath(driveId, subpath || '', req.user);
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
   req.uploadDest = resolved.fullPath;
@@ -255,15 +261,12 @@ router.post('/upload', (req, res) => {
 // Delete file or folder (Respecting Delete Permission)
 router.delete('/delete', (req, res) => {
   const { driveId, subpath } = req.query;
-  const userRole = req.user.role;
-  const resolved = resolvePath(driveId, subpath);
+  const resolved = resolvePath(driveId, subpath, req.user);
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
   // Permission Check: Delete
-  if (userRole !== 'admin') {
-    const p = resolved.drive.permissions || { master: { delete: false }, user: { delete: false } };
-    const canDelete = userRole === 'master' ? (p.master && p.master.delete) : (p.user && p.user.delete);
-    if (!canDelete) return res.status(403).json({ error: 'Você não possui permissão para apagar arquivos neste drive' });
+  if (!resolved.permissions.delete) {
+    return res.status(403).json({ error: 'Você não possui permissão para apagar arquivos neste drive' });
   }
 
   if (isProtectedPath(resolved.fullPath)) return res.status(403).json({ error: 'Protegido pelo sistema' });
@@ -276,6 +279,68 @@ router.delete('/delete', (req, res) => {
     else fs.unlinkSync(resolved.fullPath);
     res.json({ success: true, message: 'Apagado com sucesso' });
   } catch (e) { res.status(500).json({ error: 'Erro ao apagar: ' + e.message }); }
+});
+
+// Search files recursively
+router.get('/search', (req, res) => {
+  const { driveId, subpath, q } = req.query;
+  const userRole = req.user.role;
+  
+  if (!driveId || !q) return res.status(400).json({ error: 'driveId e termo de busca são obrigatórios' });
+  if (q.length < 2) return res.json({ files: [] });
+
+  const resolved = resolvePath(driveId, subpath || '', req.user);
+  if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
+
+  // Admin search restriction: Only admin can search from root of a drive?
+  // User said: "esta opção fica restrita ao entrar num diretório.. a não ser que seja administrador"
+  if (userRole !== 'admin' && !subpath) {
+    return res.status(403).json({ error: 'Apenas administradores podem pesquisar na raiz do drive' });
+  }
+
+  if (!resolved.permissions.read) return res.status(403).json({ error: 'Acesso negado' });
+
+  const results = [];
+  const query = q.toLowerCase();
+  const maxResults = 100;
+
+  function walk(currentPath, relativePath) {
+    if (results.length >= maxResults) return;
+    
+    try {
+      const items = fs.readdirSync(currentPath, { withFileTypes: true });
+      for (const item of items) {
+        if (results.length >= maxResults) break;
+        
+        const name = item.name;
+        const itemRelPath = relativePath ? path.join(relativePath, name) : name;
+        const itemFullPath = path.join(currentPath, name);
+
+        if (name.toLowerCase().includes(query)) {
+          let stat;
+          try { stat = fs.statSync(itemFullPath); } catch (e) { continue; }
+          
+          results.push({
+            name,
+            subpath: itemRelPath.replace(/\\/g, '/'),
+            isDirectory: item.isDirectory(),
+            size: item.isDirectory() ? 0 : stat.size,
+            modified: stat.mtime,
+            extension: path.extname(name)
+          });
+        }
+
+        if (item.isDirectory()) {
+          walk(itemFullPath, itemRelPath);
+        }
+      }
+    } catch (e) {
+      // Skip folders without permission
+    }
+  }
+
+  walk(resolved.fullPath, subpath || '');
+  res.json({ files: results });
 });
 
 module.exports = router;

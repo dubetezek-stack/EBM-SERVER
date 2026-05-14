@@ -69,21 +69,31 @@ var App = /*#__PURE__*/function () {
         this.bindExplorer(params ? params.driveId : null, params ? params.subpath : '');
         this.bindDock('files');
       } else if (view === 'speedtest') {
-        appEl.innerHTML = renderExplorer(this.user);
-        var contentArea = document.getElementById('content-area');
-        if (contentArea) contentArea.innerHTML = renderSpeedTestView();
-        this.bindExplorerActions();
+        appEl.innerHTML = renderSpeedTestView();
+        var btnClose = document.getElementById('btn-app-close');
+        if (btnClose) btnClose.onclick = function() { self.back(); };
         this.bindDock('files');
       } else if (view === 'cameras') {
-        appEl.innerHTML = renderExplorer(this.user);
-        var contentArea = document.getElementById('content-area');
-        if (contentArea) {
-          contentArea.innerHTML = renderCamerasView();
-          this.bindCameras();
-        }
-        this.bindExplorerActions();
+        appEl.innerHTML = renderCamerasView();
+        this.bindCameras();
+        var btnClose = document.getElementById('btn-app-close');
+        if (btnClose) btnClose.onclick = function() { self.back(); };
         this.bindDock('files');
       } else if (view === 'admin') {
+        var role = this.user ? this.user.role : '';
+        var isAdmin = role === 'admin';
+        
+        var tabsHtml = '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>' +
+                       '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>' +
+                       '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
+        
+        if (isAdmin) {
+          tabsHtml += '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Conectados</button>' +
+                      '<button class="config-tab" data-tab="server" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Servidor</button>' +
+                      '<button class="config-tab" data-tab="cameras" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Câmeras</button>' +
+                      '<button class="config-tab" data-tab="logs" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Logs</button>';
+        }
+
         appEl.innerHTML = '<div class="admin-page-view">' + 
                             '<div class="admin-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
                               '<div style="display:flex;align-items:center;gap:12px">' +
@@ -95,13 +105,8 @@ var App = /*#__PURE__*/function () {
                               '</div>' +
                               '<button class="btn-icon" id="btn-admin-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
                             '</div>' +
-                            '<div class="config-tabs" style="background:var(--bg-secondary);padding:0 24px;border-bottom:1px solid var(--border);display:flex;gap:20px">' +
-                              '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Drives</button>' +
-                              '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Usuários</button>' +
-                              '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Conectados</button>' +
-                              '<button class="config-tab" data-tab="server" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Servidor</button>' +
-                              '<button class="config-tab" data-tab="cameras" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Câmeras</button>' +
-                              '<button class="config-tab" data-tab="logs" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent">Logs</button>' +
+                            '<div class="config-tabs" style="background:var(--bg-secondary);padding:0 24px;border-bottom:1px solid var(--border);display:flex;gap:20px;overflow-x:auto">' +
+                              tabsHtml +
                             '</div>' +
                             '<div class="admin-content" id="config-body" style="flex:1;overflow-y:auto;padding:24px">' +
                               '<div class="loading"><div class="spinner"></div></div>' +
@@ -193,17 +198,28 @@ var App = /*#__PURE__*/function () {
   _proto.showDesktop = function showDesktop() {
     var self = this;
     var appEl = document.getElementById('app');
-    appEl.innerHTML = renderDesktop([], this.user);
-    this.bindDock('home');
-    this.bindDesktopEvents();
     
     API.get('/apps/installed').then(function(apps) {
-      if (apps && self.currentView === 'desktop') {
-        var grid = document.querySelector('.desktop-icons');
-        if (grid) grid.innerHTML = renderDesktopIcons(apps);
+      self.apps = apps || [];
+      var role = self.user ? self.user.role : '';
+      var isMasterPlus = role === 'master' || role === 'admin';
+      
+      // Add settings icon for master/admin if not in list
+      if (isMasterPlus && !self.apps.find(function(a){return a.id === 'settings';})) {
+        self.apps.push({ id: 'settings', name: 'Configurações', icon: 'settings', description: 'Configurações do sistema' });
+      }
+
+      if (self.currentView === 'desktop') {
+        appEl.innerHTML = renderDesktop(self.apps, self.user);
+        self.bindDock('home');
+        self.bindDesktopEvents();
       }
     }).catch(function(err) {
       console.error('Falha ao carregar apps:', err);
+      if (self.currentView === 'desktop') {
+        appEl.innerHTML = renderDesktop([], self.user);
+        self.bindDock('home');
+      }
     });
   };
 
@@ -273,18 +289,8 @@ var App = /*#__PURE__*/function () {
         appEl.innerHTML = renderAppStore(res[0] || [], (res[1] || []).map(function(a){return a.id;}));
         self.bindDock('store');
         self.bindAppStoreEvents();
-        var header = document.querySelector('.app-store-header');
-        if (header) {
-          var btn = document.createElement('button');
-          btn.className = 'btn-icon';
-          btn.style.position = 'absolute';
-          btn.style.top = '20px';
-          btn.style.right = '20px';
-          btn.innerHTML = Icons.close;
-          btn.onclick = function() { self.back(); };
-          header.style.position = 'relative';
-          header.appendChild(btn);
-        }
+        var btnClose = document.getElementById('btn-store-close');
+        if (btnClose) btnClose.onclick = function() { self.back(); };
       }
     });
   };
@@ -329,83 +335,304 @@ var App = /*#__PURE__*/function () {
     body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
     if (tab === 'drives') {
-      API.get('/admin/drives').then(function(drives) {
-        body.innerHTML = renderDrivesConfig(drives || []);
+      Promise.all([API.get('/admin/drives'), API.get('/admin/users')]).then(function(results) {
+        var drives = results[0] || [];
+        var users = results[1] || [];
+        var role = self.user ? self.user.role : '';
+        var isAdmin = role === 'admin';
         
-        var btnSave = document.getElementById('drive-form-save');
-        if (btnSave) {
-          btnSave.onclick = function() {
-            var id = document.getElementById('drive-edit-id').value;
-            var data = {
-              name: document.getElementById('cfg-drive-name').value,
-              path: document.getElementById('cfg-drive-path').value,
-              color: document.querySelector('.color-option.selected')?.getAttribute('data-color') || '#0078d4'
+        body.innerHTML = renderDrivesConfig(drives, users, isAdmin);
+        self.bindBrowse();
+        
+        // Color selection logic for each card
+        document.querySelectorAll('.drive-cfg-card').forEach(function(card) {
+          card.querySelectorAll('.color-option').forEach(function(opt) {
+            opt.onclick = function() {
+              card.querySelectorAll('.color-option').forEach(function(x){ x.classList.remove('selected'); });
+              this.classList.add('selected');
             };
-            var promise = id ? API.put('/admin/drives/' + id, data) : API.post('/admin/drives', data);
-            promise.then(function() {
-              showToast('Drive salvo!', 'success');
+          });
+        });
+
+        // Save logic for each card
+        document.querySelectorAll('.drive-save-btn').forEach(function(btn) {
+          btn.onclick = function() {
+            var card = this.closest('.drive-cfg-card');
+            var id = card.getAttribute('data-drive-id');
+            var byUser = {};
+            card.querySelectorAll('.card-user-row').forEach(function(row) {
+              var uid = row.getAttribute('data-user-id');
+              var manageEl = row.querySelector('.p-user-manage');
+              byUser[uid] = {
+                manage: manageEl ? manageEl.checked : false,
+                read: row.querySelector('.p-user-read').checked,
+                upload: row.querySelector('.p-user-upload').checked,
+                delete: row.querySelector('.p-user-delete').checked
+              };
+            });
+            
+            var data = {
+              name: card.querySelector('.cfg-drive-name').value,
+              path: card.querySelector('.cfg-drive-path').value,
+              color: card.querySelector('.color-option.selected')?.getAttribute('data-color') || '#0078d4',
+              permissions: {
+                byUser: byUser
+              }
+            };
+            
+            // Only add group permissions if they are present in the DOM (Admin only)
+            if (card.querySelector('.p-m-read')) {
+              data.permissions.master = {
+                read: card.querySelector('.p-m-read').checked,
+                upload: card.querySelector('.p-m-upload').checked,
+                delete: card.querySelector('.p-m-delete').checked
+              };
+            }
+            if (card.querySelector('.p-u-read')) {
+              data.permissions.user = {
+                read: card.querySelector('.p-u-read').checked,
+                upload: card.querySelector('.p-u-upload').checked,
+                delete: card.querySelector('.p-u-delete').checked
+              };
+            }
+
+            API.put('/admin/drives/' + id, data).then(function() {
+              showToast('Drive atualizado!', 'success');
               self.loadConfigTab('drives');
             }).catch(function(e) { showToast(e.message, 'error'); });
           };
+        });
+
+        // Add Drive Card logic
+        var btnAddDrive = document.getElementById('btn-add-drive-card');
+        if (btnAddDrive) {
+          btnAddDrive.onclick = function() {
+            API.get('/admin/users').then(function(users) {
+              var modal = document.getElementById('new-drive-modal');
+              var container = document.getElementById('new-drive-form-container');
+              var isAdmin = self.user && self.user.role === 'admin';
+              
+              container.innerHTML = renderNewDriveForm(users, isAdmin);
+              modal.style.display = 'flex';
+              
+              // Apply checkbox dependency logic (Leitura disables others)
+              self.bindPermissionLogic(container);
+
+              document.getElementById('close-new-drive-modal').onclick = function() { modal.style.display = 'none'; };
+              document.getElementById('btn-browse-new').onclick = function() {
+                self.bindBrowseForElement('new-drive-path', 'btn-browse-new');
+              };
+
+              document.getElementById('new-drive-colors').querySelectorAll('.color-option').forEach(function(opt) {
+                opt.onclick = function() {
+                  this.parentNode.querySelectorAll('.color-option').forEach(function(x){ x.classList.remove('selected'); });
+                  this.classList.add('selected');
+                };
+              });
+
+
+              document.getElementById('save-new-drive').onclick = function() {
+                var byUser = {};
+                document.querySelectorAll('#new-drive-permissions .card-user-row').forEach(function(row) {
+                  var uid = row.getAttribute('data-user-id');
+                  byUser[uid] = {
+                    read: row.querySelector('.p-user-read').checked,
+                    upload: row.querySelector('.p-user-upload').checked,
+                    delete: row.querySelector('.p-user-delete').checked,
+                    manage: row.querySelector('.p-user-manage') ? row.querySelector('.p-user-manage').checked : false
+                  };
+                });
+
+                var data = {
+                  name: document.getElementById('new-drive-name').value,
+                  path: document.getElementById('new-drive-path').value,
+                  color: document.getElementById('new-drive-colors').querySelector('.color-option.selected')?.getAttribute('data-color') || '#0078d4',
+                  permissions: { 
+                    master: {read:true,upload:true,delete:true}, 
+                    user: {read:true,upload:false,delete:false},
+                    byUser: byUser
+                  }
+                };
+
+                if (!data.name || !data.path) return showToast('Preencha nome e caminho', 'warning');
+                API.post('/admin/drives', data).then(function() {
+                  showToast('Drive adicionado!', 'success');
+                  modal.style.display = 'none';
+                  self.loadConfigTab('drives');
+                }).catch(function(e) { showToast(e.message, 'error'); });
+              };
+            });
+          };
         }
-        
-        document.querySelectorAll('.cfg-edit-drive').forEach(function(btn) {
+
+        // Bind browse path for existing cards
+        document.querySelectorAll('.btn-browse-path').forEach(function(btn) {
           btn.onclick = function() {
-            var id = this.getAttribute('data-id');
-            var d = drives.find(function(x){return x.id === id;});
-            if (d) {
-              document.getElementById('drive-edit-id').value = d.id;
-              document.getElementById('cfg-drive-name').value = d.name;
-              document.getElementById('cfg-drive-path').value = d.path;
-              document.getElementById('drive-form-title').textContent = 'Editar Drive';
-            }
+            var card = this.closest('.drive-cfg-card');
+            var pathInput = card.querySelector('.cfg-drive-path');
+            var btnId = 'temp-btn-' + Date.now();
+            this.id = btnId;
+            self.bindBrowseForElement(pathInput.className, btnId);
           };
         });
 
+        // Bind card expansion
+        self.bindCardExpansion(body);
+
+        // Bind permission logic (Reading required for Writing/Deleting)
+        self.bindPermissionLogic(body);
+
+        // Delete drive
         document.querySelectorAll('.cfg-del-drive').forEach(function(btn) {
-          btn.onclick = function() {
+          btn.onclick = function(e) {
+            e.stopPropagation();
             var id = this.getAttribute('data-id');
             if (confirm('Remover drive?')) {
               API.del('/admin/drives/' + id).then(function() { self.loadConfigTab('drives'); });
             }
           };
         });
-      }).catch(function(e) { body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">Erro ao carregar drives: ' + e.message + '</div>'; });
+
+        // Bind Close Card button
+        document.querySelectorAll('.btn-close-card').forEach(function(btn) {
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            var card = this.closest('.config-card');
+            if (card) card.classList.remove('active');
+          };
+        });
+      }).catch(function(e) { body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">Erro ao carregar dados: ' + e.message + '</div>'; });
     } else if (tab === 'users') {
       API.get('/admin/users').then(function(users) {
         body.innerHTML = renderUsersConfig(users || []);
-        var btnSave = document.getElementById('user-form-save');
-        if (btnSave) {
-          btnSave.onclick = function() {
-            var id = document.getElementById('user-edit-id').value;
+        
+        // Save user from expanded card
+        document.querySelectorAll('.user-save-btn').forEach(function(btn) {
+          btn.onclick = function() {
+            var card = this.closest('.config-card');
+            var id = this.getAttribute('data-id');
             var data = {
-              username: document.getElementById('cfg-user-name').value,
-              password: document.getElementById('cfg-user-pass').value,
-              role: document.getElementById('cfg-user-role').value
+              username: card.querySelector('.cfg-edit-name').value,
+              password: card.querySelector('.cfg-edit-pass').value,
+              oldPassword: card.querySelector('.cfg-edit-old-pass')?.value || '',
+              role: card.querySelector('.cfg-edit-role').value
             };
-            var promise = id ? API.put('/admin/users/' + id, data) : API.post('/admin/users', data);
-            promise.then(function() {
-              showToast('Usuário salvo!', 'success');
+            API.put('/admin/users/' + id, data).then(function() {
+              showToast('Usuário atualizado!', 'success');
               self.loadConfigTab('users');
             }).catch(function(e) { showToast(e.message, 'error'); });
           };
-        }
-        document.querySelectorAll('.cfg-edit-user').forEach(function(btn) {
-          btn.onclick = function() {
-            document.getElementById('user-edit-id').value = this.getAttribute('data-id');
-            document.getElementById('cfg-user-name').value = this.getAttribute('data-username');
-            document.getElementById('cfg-user-role').value = this.getAttribute('data-role');
-          };
         });
+
+        // Delete user
         document.querySelectorAll('.cfg-del-user').forEach(function(btn) {
-          btn.onclick = function() {
+          btn.onclick = function(e) {
+            e.stopPropagation();
             var id = this.getAttribute('data-id');
             if (confirm('Remover usuário?')) {
               API.del('/admin/users/' + id).then(function() { self.loadConfigTab('users'); });
             }
           };
         });
+
+        // Add User Modal logic
+        var addCard = document.getElementById('btn-add-user-card');
+        var modal = document.getElementById('new-user-modal');
+        if (addCard && modal) {
+          addCard.onclick = function() { modal.style.display = 'flex'; };
+          document.getElementById('close-new-user-modal').onclick = function() { modal.style.display = 'none'; };
+          document.getElementById('btn-save-new-user').onclick = function() {
+            var data = {
+              username: document.getElementById('new-user-name').value,
+              password: document.getElementById('new-user-pass').value,
+              role: document.getElementById('new-user-role').value
+            };
+            if (!data.username || !data.password) return showToast('Preencha nome e senha', 'warning');
+            API.post('/admin/users', data).then(function() {
+              showToast('Usuário criado!', 'success');
+              self.loadConfigTab('users');
+            }).catch(function(e) { showToast(e.message, 'error'); });
+          };
+        }
+
+        // Bind card expansion
+        self.bindCardExpansion(body);
       }).catch(function(e) { body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">Erro ao carregar usuários: ' + e.message + '</div>'; });
+    } else if (tab === 'apps') {
+      API.get('/apps/admin/installed-with-permissions').then(function(apps) {
+        var role = self.user ? self.user.role : '';
+        var isAdmin = role === 'admin';
+        body.innerHTML = renderAppsConfig(apps || [], isAdmin);
+        
+        // Bind card expansion
+        self.bindCardExpansion(body);
+
+        // Bind Close Card button
+        document.querySelectorAll('.btn-close-card').forEach(function(btn) {
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            var card = this.closest('.config-card');
+            if (card) card.classList.remove('active');
+          };
+        });
+
+        // Bind group-specific toggles
+        document.querySelectorAll('.app-role-toggle').forEach(function(toggle) {
+          toggle.onchange = function() {
+            var appId = this.getAttribute('data-app-id');
+            var role = this.getAttribute('data-role');
+            var appData = apps.find(function(a) { return a.id === appId; });
+            if (!appData) return;
+            
+            var newPerms = appData.permissions || { byRole: {} };
+            newPerms.byRole[role] = this.checked;
+            
+            API.put('/apps/permissions/' + appId, newPerms).then(function() {
+              showToast('Permissão atualizada!', 'success');
+            }).catch(function(e) {
+              showToast('Erro: ' + e.message, 'error');
+              toggle.checked = !toggle.checked;
+            });
+          };
+        });
+        
+        // Bind user-specific toggles
+        document.querySelectorAll('.app-user-toggle').forEach(function(toggle) {
+          toggle.onchange = function() {
+            var appId = this.getAttribute('data-app-id');
+            var userId = this.getAttribute('data-user-id');
+            var hasAccess = this.checked;
+            
+            // Master Restriction Frontend Check
+            if (self.user && self.user.role === 'master') {
+              var appData = apps.find(function(a){return a.id === appId;});
+              var targetUser = appData?.users?.find(function(u){return u.id === userId;});
+              
+              if (targetUser && (targetUser.role === 'master' || targetUser.role === 'admin')) {
+                showToast('Ação não permitida: Você não pode alterar o acesso de outros Masters ou Admins', 'warning');
+                this.checked = !this.checked;
+                return;
+              }
+            }
+            
+            API.put('/apps/user-access/' + appId + '/' + userId, { hasAccess: hasAccess }).then(function() {
+              showToast('Acesso do usuário atualizado!', 'success');
+            }).catch(function(e) {
+              showToast(e.message, 'error');
+              toggle.checked = !toggle.checked;
+            });
+          };
+        });
+
+        // Bind Close Card button
+        document.querySelectorAll('.btn-close-card').forEach(function(btn) {
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            var card = this.closest('.config-card');
+            if (card) card.classList.remove('active');
+          };
+        });
+      }).catch(function(e) { body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--danger)">Erro ao carregar apps: ' + e.message + '</div>'; });
     } else if (tab === 'sessions') {
       API.get('/admin/sessions').then(function(sessions) {
         body.innerHTML = renderSessionsConfig(sessions || []);
@@ -778,16 +1005,152 @@ var App = /*#__PURE__*/function () {
     else this.loadFiles(driveId, subpath);
   };
 
+  _proto.bindBrowse = function bindBrowse() {
+    var self = this;
+    var btnBrowse = document.getElementById('btn-browse-path');
+    if (!btnBrowse) return;
+
+    btnBrowse.onclick = function() {
+      API.get('/admin/browse/drives').then(function(drives) {
+        var modalHtml = renderBrowseDialog(drives);
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        var overlay = document.getElementById('browse-overlay');
+        var content = document.getElementById('browse-content');
+        var breadcrumb = document.getElementById('browse-breadcrumb');
+        var selectedPathEl = document.getElementById('browse-selected-path');
+        var currentPath = '';
+
+        function loadPath(path) {
+          currentPath = path;
+          breadcrumb.textContent = path || 'Drives';
+          if (selectedPathEl) selectedPathEl.textContent = path || 'Nenhum';
+          content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+          
+          API.get('/admin/browse/path?path=' + encodeURIComponent(path)).then(function(folders) {
+            var html = '';
+            // Add back button if not at root
+            if (path.length > 3) { // Greater than "C:\"
+              html += '<div class="browse-folder-item" data-back="true" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' +
+                        '<div style="color:var(--accent)">' + Icons.up + '</div>' +
+                        '<span>.. (Voltar)</span>' +
+                      '</div>';
+            } else {
+              html += '<div class="browse-folder-item" data-back-to-drives="true" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' +
+                        '<div style="color:var(--accent)">' + Icons.back + '</div>' +
+                        '<span>Voltar aos Drives</span>' +
+                      '</div>';
+            }
+
+            folders.forEach(function(f) {
+              html += '<div class="browse-folder-item" data-folder="' + escapeHtml(f) + '" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' +
+                        '<div style="color:var(--accent)">' + Icons.folder + '</div>' +
+                        '<span>' + escapeHtml(f) + '</span>' +
+                      '</div>';
+            });
+            content.innerHTML = html;
+            
+            content.querySelectorAll('.browse-folder-item').forEach(function(item) {
+              item.onclick = function() {
+                if (this.getAttribute('data-back')) {
+                  var parts = currentPath.split('\\');
+                  parts.pop(); // Remove trailing empty
+                  parts.pop(); // Remove last folder
+                  loadPath(parts.join('\\') + '\\');
+                } else if (this.getAttribute('data-back-to-drives')) {
+                  showDrives();
+                } else {
+                  var folder = this.getAttribute('data-folder');
+                  loadPath(currentPath + folder + '\\');
+                }
+              };
+            });
+          });
+        }
+
+        function showDrives() {
+          currentPath = '';
+          breadcrumb.textContent = 'Drives';
+          if (selectedPathEl) selectedPathEl.textContent = 'Nenhum';
+          content.innerHTML = '';
+          drives.forEach(function(d) {
+            var usedPct = d.total ? Math.round((d.total - d.free) / d.total * 100) : 0;
+            var barColor = usedPct > 90 ? 'var(--danger)' : 'var(--accent-blue)';
+            var freeText = formatSize(d.free) + ' livre(s) de ' + formatSize(d.total);
+            
+            var div = document.createElement('div');
+            div.className = 'browse-drive-item';
+            div.style.cssText = 'background:var(--bg-secondary);padding:12px;border-radius:8px;border:1px solid var(--border);display:flex;gap:12px;cursor:pointer;margin-bottom:10px';
+            div.innerHTML = '<div style="color:var(--accent);font-size:24px">' + Icons.drive('#0078d4') + '</div>' +
+                            '<div style="flex:1">' +
+                              '<div style="font-weight:600;font-size:13px">' + escapeHtml(d.name) + ' (' + d.path.replace('\\','') + ')</div>' +
+                              '<div style="height:4px;background:rgba(255,255,255,0.1);border-radius:20px;margin:6px 0;overflow:hidden">' +
+                                '<div style="height:100%;background:' + barColor + ';width:' + usedPct + '%"></div>' +
+                              '</div>' +
+                              '<div style="font-size:11px;color:var(--text-secondary)">' + freeText + '</div>' +
+                            '</div>';
+            div.onclick = function() { loadPath(d.path); };
+            content.appendChild(div);
+          });
+        }
+
+        document.getElementById('browse-close').onclick = document.getElementById('browse-cancel').onclick = function() {
+          overlay.remove();
+        };
+
+        document.getElementById('browse-select').onclick = function() {
+          if (currentPath) {
+            document.getElementById('cfg-drive-path').value = currentPath;
+            btnBrowse.textContent = currentPath;
+            overlay.remove();
+          } else {
+            showToast('Selecione um drive primeiro', 'warning');
+          }
+        };
+
+        // Initial drives click binding (for the HTML we just inserted)
+        content.querySelectorAll('.browse-drive-item').forEach(function(item) {
+          item.onclick = function() { loadPath(this.getAttribute('data-path')); };
+        });
+      });
+    };
+  };
+
   _proto.bindExplorerActions = function bindExplorerActions() {
     var self = this;
-    var search = document.getElementById('search-input');
-    if (search) {
-      search.oninput = function(e) {
-        var q = e.target.value.toLowerCase();
-        document.querySelectorAll('.file-row, .drive-card').forEach(function(item) {
-          var name = (item.querySelector('.file-name') || item.querySelector('.drive-name')).textContent.toLowerCase();
-          item.style.display = name.indexOf(q) > -1 ? '' : 'none';
-        });
+    var searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.oninput = function(e) {
+        var subpath = self.currentPath || '';
+        var query = searchInput.value.trim().toLowerCase();
+        
+        // Hide upload zone during search
+        var zone = document.getElementById('upload-zone');
+        if (zone) zone.style.display = query ? 'none' : 'flex';
+
+        if (!query) {
+          self.loadFiles(self.currentDriveId, subpath);
+          return;
+        }
+        
+        var isAdmin = self.user && self.user.role === 'admin';
+        // Only trigger deep search for admins and if we have a drive context
+        if (isAdmin && self.currentDriveId && query.length > 2) {
+          API.get('/files/search?driveId=' + self.currentDriveId + '&subpath=' + encodeURIComponent(subpath) + '&query=' + encodeURIComponent(query))
+            .then(function(results) {
+              if (self.currentView === 'explorer') {
+                var content = document.getElementById('content-area');
+                content.innerHTML = renderFileList(results || [], self.currentDriveId, subpath, self.currentDrivePermissions);
+                self.bindFileActions(self.currentDriveId, subpath);
+              }
+            });
+        } else {
+          // Local filter
+          document.querySelectorAll('.file-row').forEach(function(item) {
+            var name = item.querySelector('.file-name').textContent.toLowerCase();
+            item.style.display = name.indexOf(query) > -1 ? '' : 'none';
+          });
+        }
       };
     }
     var btnHome = document.getElementById('btn-home');
@@ -800,7 +1163,29 @@ var App = /*#__PURE__*/function () {
     if (btnSpeed) btnSpeed.onclick = function() { self.navigate('speedtest'); };
 
     var btnCams = document.getElementById('btn-cameras');
-    if (btnCams) btnCams.onclick = function() { self.navigate('cameras'); };
+    if (btnCams) {
+      btnCams.onclick = function() { self.navigate('cameras'); };
+      // Check permission for cameras
+      API.get('/apps/installed').then(function(apps) {
+        var canAccess = apps.find(function(a){return a.id === 'cameras';});
+        if (canAccess) btnCams.style.display = 'flex';
+      });
+    }
+
+    var btnUpload = document.getElementById('btn-upload');
+    if (btnUpload) {
+      btnUpload.onclick = function() {
+        var zone = document.getElementById('upload-zone');
+        if (zone) {
+          var isHidden = zone.style.display === 'none' || zone.style.display === '';
+          zone.style.display = isHidden ? 'flex' : 'none';
+          btnUpload.classList.toggle('active', isHidden);
+        }
+      };
+    }
+
+    // Bind Drag & Drop
+    self.bindDragAndDrop();
 
     var btnLogout = document.getElementById('btn-logout');
     if (btnLogout) btnLogout.onclick = function() { API.clearToken(); self.navigate('login'); };
@@ -824,6 +1209,10 @@ var App = /*#__PURE__*/function () {
     var content = document.getElementById('content-area');
     if (content) content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     
+    // Hide upload zone when viewing drives
+    var zone = document.getElementById('upload-zone');
+    if (zone) zone.style.display = 'none';
+
     API.get('/files/drives').then(function(drives) {
       self.drives = drives || [];
       if (content) {
@@ -843,10 +1232,24 @@ var App = /*#__PURE__*/function () {
     var content = document.getElementById('content-area');
     if (content) content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
     
-    API.get('/files/list?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath)).then(function(res) {
-      if (content && res) {
-        content.innerHTML = renderFileList(res.files || [], driveId, subpath, res.permissions);
+    API.get('/files/list?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath)).then(function(data) {
+      self.currentDriveId = driveId;
+      self.currentPath = subpath;
+      self.currentDrivePermissions = data.permissions;
+      
+      // Show upload button in toolbar if permitted
+      var btnUpload = document.getElementById('btn-upload');
+      if (btnUpload) btnUpload.style.display = data.permissions.upload ? 'flex' : 'none';
+
+      if (content) {
+        content.innerHTML = renderFileList(data.files || [], driveId, subpath, data.permissions);
         self.bindFileActions(driveId, subpath);
+        
+        // Handle upload button visibility
+        var btnUpload = document.getElementById('btn-upload');
+        if (btnUpload) {
+          btnUpload.style.display = (res.permissions && res.permissions.upload) ? 'flex' : 'none';
+        }
       }
     });
   };
@@ -864,7 +1267,232 @@ var App = /*#__PURE__*/function () {
         }
       };
     });
+
+    // Bind delete buttons
+    document.querySelectorAll('.btn-delete-file').forEach(function(btn) {
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        var name = this.getAttribute('data-name');
+        var driveId = this.getAttribute('data-drive-id');
+        var subpath = this.getAttribute('data-subpath');
+        var isDir = this.getAttribute('data-is-dir') === 'true';
+
+        if (confirm('Tem certeza que deseja apagar ' + (isDir ? 'esta pasta' : 'este arquivo') + ': ' + name + '?')) {
+          API.del('/files/delete?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath))
+            .then(function() {
+              showToast('Apagado com sucesso', 'success');
+              self.loadFiles(driveId, self.currentPath);
+            })
+            .catch(function(err) { showToast(err.message, 'error'); });
+        }
+      };
+    });
   };
+
+  _proto.bindBrowseForElement = function (idField, btnId) {
+    var self = this;
+    API.get('/admin/browse/drives').then(function (drives) {
+      var modalHtml = renderBrowseDialog(drives);
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      var overlay = document.getElementById('browse-overlay');
+      var content = document.getElementById('browse-content');
+      var selectedPathEl = document.getElementById('browse-selected-path');
+      var currentPath = '';
+
+      function loadPath(path) {
+        var btnSelect = document.getElementById('browse-select');
+        if (btnSelect) btnSelect.disabled = true;
+
+        if (selectedPathEl) selectedPathEl.textContent = path || 'Nenhum';
+        content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+        
+        API.get('/admin/browse/path?path=' + encodeURIComponent(path)).then(function (folders) {
+          currentPath = path; // Only update currentPath on success
+          if (btnSelect) btnSelect.disabled = false;
+          
+          var html = '';
+          if (path.length > 3) {
+            html += '<div class="browse-folder-item" data-back="true" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' + Icons.up + ' <span>.. (Voltar)</span></div>';
+          } else {
+            html += '<div class="browse-folder-item" data-back-to-drives="true" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' + Icons.back + ' <span>Voltar aos Drives</span></div>';
+          }
+          folders.forEach(function (f) {
+            var name = typeof f === 'object' ? f.name : f;
+            var fPath = typeof f === 'object' ? f.path : (path + (path.endsWith('\\') ? '' : '\\') + f);
+            html += '<div class="browse-folder-item" data-path="' + escapeHtml(fPath) + '" style="padding:10px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">' + Icons.folder + ' <span>' + escapeHtml(name) + '</span></div>';
+          });
+          content.innerHTML = html;
+          content.querySelectorAll('.browse-folder-item').forEach(function (item) {
+            item.onclick = function () {
+              if (this.hasAttribute('data-back')) {
+                var parts = currentPath.split('\\').filter(Boolean);
+                parts.pop();
+                var parent = parts.join('\\') + (parts.length > 0 ? '\\' : '');
+                loadPath(parent);
+              } else if (this.hasAttribute('data-back-to-drives')) {
+                overlay.remove();
+                self.bindBrowseForElement(idField, btnId);
+              } else {
+                loadPath(this.getAttribute('data-path'));
+              }
+            };
+          });
+        }).catch(function(e) {
+          content.innerHTML = '<div style="padding:20px;text-align:center;color:var(--danger)">Erro: ' + e.message + '</div>';
+          currentPath = ''; // Reset on error
+          if (btnSelect) btnSelect.disabled = true;
+        });
+      }
+
+      content.querySelectorAll('.browse-drive-item').forEach(function (item) {
+        item.onclick = function () {
+          loadPath(this.getAttribute('data-path'));
+        };
+      });
+      document.getElementById('browse-close').onclick = function () {
+        overlay.remove();
+      };
+      document.getElementById('browse-cancel').onclick = function () {
+        overlay.remove();
+      };
+      document.getElementById('browse-select').onclick = function () {
+        if (!currentPath) return showToast('Selecione uma pasta', 'warning');
+        var input = document.getElementById(idField) || document.querySelector('.' + idField);
+        if (input) input.value = currentPath;
+        var btn = document.getElementById(btnId);
+        if (btn) btn.textContent = currentPath;
+        overlay.remove();
+      };
+    });
+  };
+
+  _proto.bindPermissionLogic = function(container) {
+    var self = this;
+    
+    function updateState(row) {
+      var read = row.querySelector('input[class*="-read"]');
+      var write = row.querySelector('input[class*="-upload"]');
+      var del = row.querySelector('input[class*="-delete"]');
+      
+      if (read && write && del) {
+        if (!read.checked) {
+          write.checked = false;
+          del.checked = false;
+          write.disabled = true;
+          del.disabled = true;
+          write.parentElement.style.opacity = '0.5';
+          del.parentElement.style.opacity = '0.5';
+        } else {
+          write.disabled = false;
+          del.disabled = false;
+          write.parentElement.style.opacity = '1';
+          del.parentElement.style.opacity = '1';
+        }
+      }
+    }
+
+    // Handle Group Master
+    container.querySelectorAll('.card-perm-row').forEach(function(row) {
+      var read = row.querySelector('input[class*="-read"]');
+      if (read) {
+        read.onchange = function() { updateState(row); };
+        updateState(row); // Initial state
+      }
+    });
+
+    // Handle Individual Users
+    container.querySelectorAll('.card-user-row').forEach(function(row) {
+      var read = row.querySelector('.p-user-read');
+      if (read) {
+        read.onchange = function() { updateState(row); };
+        updateState(row); // Initial state
+      }
+    });
+  };
+
+  _proto.bindDragAndDrop = function() {
+    var self = this;
+    var zone = document.getElementById('upload-zone');
+    if (!zone) return;
+
+    var input = zone.querySelector('#upload-input');
+    zone.onclick = function() { if (input) input.click(); };
+
+    if (input) {
+      input.onchange = function(e) {
+        var files = e.target.files;
+        if (!files || !files.length) return;
+        self.uploadFiles(files);
+      };
+    }
+
+    zone.ondragover = function(e) {
+      e.preventDefault();
+      if (!self.currentDrivePermissions || !self.currentDrivePermissions.upload) return;
+      zone.classList.add('drag-over');
+    };
+
+    zone.ondragleave = function(e) {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+    };
+
+    zone.ondrop = function(e) {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!self.currentDrivePermissions || !self.currentDrivePermissions.upload) {
+        return showToast('Você não possui permissão para enviar arquivos para este drive', 'warning');
+      }
+      var files = e.dataTransfer.files;
+      if (!files || !files.length) return;
+      self.uploadFiles(files);
+    };
+  };
+
+  _proto.uploadFiles = function(files) {
+    var self = this;
+    showToast('Enviando ' + files.length + ' arquivo(s)...', 'info');
+    API.uploadFiles(self.currentDriveId, self.currentPath, files)
+      .then(function() {
+        showToast('Upload concluído!', 'success');
+        
+        // Hide zone after upload
+        var zone = document.getElementById('upload-zone');
+        if (zone) zone.style.display = 'none';
+        var btnUpload = document.getElementById('btn-upload');
+        if (btnUpload) btnUpload.classList.remove('active');
+
+        self.loadFiles(self.currentDriveId, self.currentPath);
+      })
+      .catch(function(err) { showToast(err.message, 'error'); });
+  };
+
+  _proto.bindCardExpansion = function(container) {
+    container.querySelectorAll('.config-card:not(.add-drive-card):not(.add-user-card)').forEach(function(card) {
+      card.onclick = function(e) {
+        var isAction = e.target.closest('.config-card-actions') || e.target.closest('.btn-icon') || e.target.closest('.switch') || e.target.closest('button');
+        var isBody = e.target.closest('.config-card-body');
+        
+        if (isAction || isBody) return;
+        
+        e.stopPropagation();
+        var wasActive = this.classList.contains('active');
+        document.querySelectorAll('.config-card.active').forEach(function(c) {
+          c.classList.remove('active');
+        });
+        if (!wasActive) this.classList.add('active');
+      };
+    });
+  };
+
+  // Global click to close cards when clicking background
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.config-card')) {
+      document.querySelectorAll('.config-card.active').forEach(function(c) {
+        c.classList.remove('active');
+      });
+    }
+  });
 
   return App;
 }();
