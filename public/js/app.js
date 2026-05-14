@@ -6,6 +6,7 @@ var App = /*#__PURE__*/function () {
     this.currentView = null;
     this.currentParams = null;
     this.history = [];
+    this.forwardHistory = [];
     this.drives = [];
     this.currentDriveId = null;
     this.currentPath = '';
@@ -47,6 +48,7 @@ var App = /*#__PURE__*/function () {
     
     if (!skipHistory && this.currentView && this.currentView !== 'login' && this.currentView !== 'setup') {
       this.history.push({ view: this.currentView, params: this.currentParams });
+      this.forwardHistory = []; // Clear forward history on new navigation
     }
 
     this.currentView = view;
@@ -128,9 +130,18 @@ var App = /*#__PURE__*/function () {
   _proto.back = function back() {
     var last = this.history.pop();
     if (last) {
+      this.forwardHistory.push({ view: this.currentView, params: this.currentParams });
       this.navigate(last.view, last.params, true);
     } else {
       this.navigate('desktop', null, true);
+    }
+  };
+
+  _proto.forward = function forward() {
+    var next = this.forwardHistory.pop();
+    if (next) {
+      this.history.push({ view: this.currentView, params: this.currentParams });
+      this.navigate(next.view, next.params, true);
     }
   };
 
@@ -1182,12 +1193,35 @@ var App = /*#__PURE__*/function () {
         }
       };
     }
-    var btnHome = document.getElementById('btn-home');
-    if (btnHome) btnHome.onclick = function() { self.navigate('desktop'); };
-    
     var btnBack = document.getElementById('btn-back');
-    if (btnBack) btnBack.onclick = function() { self.back(); };
+    if (btnBack) {
+      btnBack.onclick = function() { self.back(); };
+      btnBack.style.opacity = self.history.length > 0 ? '1' : '0.3';
+      btnBack.style.pointerEvents = self.history.length > 0 ? 'auto' : 'none';
+    }
 
+    var btnForward = document.getElementById('btn-forward');
+    if (btnForward) {
+      btnForward.onclick = function() { self.forward(); };
+      btnForward.style.opacity = self.forwardHistory.length > 0 ? '1' : '0.3';
+      btnForward.style.pointerEvents = self.forwardHistory.length > 0 ? 'auto' : 'none';
+    }
+
+    var btnUp = document.getElementById('btn-up');
+    if (btnUp) {
+      btnUp.onclick = function() {
+        if (!self.currentDriveId) return;
+        if (!self.currentPath) {
+          self.navigate('explorer');
+        } else {
+          var parts = self.currentPath.split('/');
+          parts.pop();
+          self.navigate('explorer', { driveId: self.currentDriveId, subpath: parts.join('/') });
+        }
+      };
+      btnUp.style.opacity = self.currentDriveId ? '1' : '0.3';
+      btnUp.style.pointerEvents = self.currentDriveId ? 'auto' : 'none';
+    }
     var btnSpeed = document.getElementById('btn-speedtest');
     if (btnSpeed) btnSpeed.onclick = function() { self.navigate('speedtest'); };
 
@@ -1332,10 +1366,37 @@ var App = /*#__PURE__*/function () {
     var textContainer = document.getElementById('preview-text-content');
     if (textContainer) {
       API.get('/files/preview?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath)).then(function(res) {
-        if (res && res.type === 'text') {
+        if (!res) return;
+        if (res.type === 'text') {
           textContainer.textContent = res.content;
-        } else {
-          textContainer.textContent = 'Erro ao carregar conteúdo.';
+        } else if (res.type === 'zip') {
+          var html = '<div style="width:100%; display:flex; flex-direction:column; gap:8px">';
+          html += '<div style="font-weight:600; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1); color:var(--accent)">Conteúdo do arquivo ZIP:</div>';
+          (res.entries || []).forEach(function(e) {
+            var icon = e.isDirectory ? Icons.folder : Icons.file;
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.03)">' +
+                      '<div style="display:flex; align-items:center; gap:8px"><span>' + icon + '</span><span>' + escapeHtml(e.name) + '</span></div>' +
+                      '<span style="color:var(--text-secondary)">' + (e.isDirectory ? '' : formatSize(e.size)) + '</span>' +
+                    '</div>';
+          });
+          html += '</div>';
+          textContainer.style.fontFamily = 'inherit';
+          textContainer.innerHTML = html;
+        } else if (res.type === 'office') {
+          var downloadUrl = '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath) + '&token=' + API.token;
+          var fullUrl = window.location.origin + downloadUrl;
+          
+          if (window.location.hostname === 'localhost' || /^\d{1,3}\.\d{1,3}/.test(window.location.hostname)) {
+            textContainer.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-primary)">' +
+              '<div style="font-size:48px; margin-bottom:20px">📂</div>' +
+              '<div style="font-size:16px; font-weight:600; margin-bottom:10px">Pré-visualização do Office</div>' +
+              '<p style="font-size:13px; color:var(--text-secondary); max-width:400px; margin:0 auto 20px">A visualização online requer um endereço público (ex: DuckDNS). Como você está acessando via IP local, a Microsoft não consegue carregar este arquivo.</p>' +
+              '<a href="' + downloadUrl + '" class="btn btn-primary" style="display:inline-block; padding:10px 24px" download>Baixar Arquivo para Abrir</a>' +
+              '</div>';
+          } else {
+            var officeViewer = 'https://view.officeapps.live.com/op/embed.aspx?src=' + encodeURIComponent(fullUrl);
+            textContainer.innerHTML = '<iframe src="' + officeViewer + '" style="width:100%; height:calc(90vh - 120px); border:none; background:#fff; border-radius:4px"></iframe>';
+          }
         }
       }).catch(function(e) {
         textContainer.textContent = 'Erro: ' + e.message;
@@ -1359,7 +1420,7 @@ var App = /*#__PURE__*/function () {
     var self = this;
     document.querySelectorAll('.file-row').forEach(function(el) {
       el.onclick = function(e) {
-        if (e.target.closest('.btn-delete-file')) return;
+        if (e.target.closest('.btn-delete-file') || e.target.closest('.btn-rename-file')) return;
         var name = this.getAttribute('data-name');
         var isDir = this.getAttribute('data-is-dir') === 'true';
         if (isDir) {
@@ -1389,6 +1450,22 @@ var App = /*#__PURE__*/function () {
               self.loadFiles(driveId, self.currentPath);
             })
             .catch(function(err) { showToast(err.message, 'error'); });
+        }
+      };
+    });
+
+    // Bind rename buttons
+    document.querySelectorAll('.btn-rename-file').forEach(function(btn) {
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        var oldName = this.getAttribute('data-name');
+        var path = this.getAttribute('data-subpath');
+        var newName = prompt('Renomear para:', oldName);
+        if (newName && newName !== oldName) {
+          API.post('/files/rename', { driveId: driveId, subpath: path, newName: newName }).then(function() {
+            showToast('Renomeado com sucesso!', 'success');
+            self.loadFiles(driveId, self.currentPath);
+          }).catch(function(err) { showToast(err.message, 'error'); });
         }
       };
     });

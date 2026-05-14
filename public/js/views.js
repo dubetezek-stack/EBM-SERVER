@@ -15,8 +15,8 @@ function renderExplorer(user) {
     '<div class="top-bar">' + 
       '<div class="nav-buttons">' + 
         '<button class="btn-icon" id="btn-back" title="Voltar">' + Icons.back + '</button>' + 
+        '<button class="btn-icon" id="btn-forward" title="Avançar">' + Icons.forward + '</button>' + 
         '<button class="btn-icon" id="btn-up" title="Subir">' + Icons.up + '</button>' + 
-        '<button class="btn-icon" id="btn-home" title="Início">' + Icons.home + '</button>' + 
       '</div>' + 
       '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + 
       '<div class="top-bar-actions">' + 
@@ -154,18 +154,28 @@ function renderFileList(files, driveId, subpath, drivePermissions) {
   
   // Resolve granular permission for current user
   var canDelete = isAdmin;
+  var canRename = isAdmin;
   if (!isAdmin && drivePermissions) {
     canDelete = !!drivePermissions.delete;
+    canRename = !!drivePermissions.upload;
   } else if (!isAdmin && role === 'master') {
-    // If no specific permission object found, fallback to role default
     canDelete = true; 
+    canRename = true;
   }
 
-  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (canDelete ? '<th style="width:40px"></th>' : '') + '</tr></thead><tbody>';
+  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (canDelete || canRename ? '<th style="width:' + (canDelete && canRename ? '80px' : '40px') + '"></th>' : '') + '</tr></thead><tbody>';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
     var filePath = subpath ? subpath + '/' + f.name : f.name;
-    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" data-size="' + (f.size || 0) + '">' + '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + '<td class="file-date">' + formatDate(f.modified) + '</td>' + '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + (canDelete ? '<td><button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button></td>' : '') + '</tr>';
+    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" data-size="' + (f.size || 0) + '">' + 
+            '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + 
+            '<td class="file-date">' + formatDate(f.modified) + '</td>' + 
+            '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + 
+            '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + 
+            (canRename || canDelete ? '<td><div style="display:flex;gap:4px">' + 
+              (canRename ? '<button class="btn-icon btn-rename-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" title="Renomear">' + Icons.edit + '</button>' : '') + 
+              (canDelete ? '<button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button>' : '') + 
+            '</div></td>' : '') + '</tr>';
   }
   html += '</tbody></table></div>';
   return html;

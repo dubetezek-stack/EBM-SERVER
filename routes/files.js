@@ -184,9 +184,32 @@ router.get('/preview', (req, res) => {
 
   const mimeType = mime.lookup(resolved.fullPath) || 'application/octet-stream';
   const fileName = path.basename(resolved.fullPath);
+  const ext = path.extname(resolved.fullPath).toLowerCase();
+
+  // For ZIP files, return content list
+  if (ext === '.zip') {
+    try {
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(resolved.fullPath);
+      const entries = zip.getEntries().map(e => ({
+        name: e.entryName,
+        size: e.header.size,
+        isDirectory: e.isDirectory
+      }));
+      return res.json({ type: 'zip', entries, fileName });
+    } catch (e) {
+      return res.status(500).json({ error: 'Erro ao ler arquivo ZIP: ' + e.message });
+    }
+  }
+
+  // For Office files, flag for frontend viewer
+  const officeExts = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+  if (officeExts.includes(ext)) {
+    return res.json({ type: 'office', fileName });
+  }
 
   // For text files, read and return content
-  if (mimeType.startsWith('text/') || ['.json', '.xml', '.csv', '.log', '.ini', '.cfg', '.bat', '.ps1', '.sh', '.py', '.js', '.html', '.css', '.md'].includes(path.extname(resolved.fullPath).toLowerCase())) {
+  if (mimeType.startsWith('text/') || ['.json', '.xml', '.csv', '.log', '.ini', '.cfg', '.bat', '.ps1', '.sh', '.py', '.js', '.html', '.css', '.md'].includes(ext)) {
     try {
       const content = fs.readFileSync(resolved.fullPath, 'utf8');
       return res.json({ type: 'text', content, fileName, mimeType });
@@ -319,6 +342,33 @@ router.post('/mkdir', (req, res) => {
     res.json({ success: true, name });
   } catch (e) {
     res.status(500).json({ error: 'Erro ao criar pasta: ' + e.message });
+  }
+});
+
+router.post('/rename', (req, res) => {
+  const { driveId, subpath, newName } = req.body;
+  if (!driveId || !subpath || !newName) return res.status(400).json({ error: 'driveId, subpath e novo nome são obrigatórios' });
+
+  const resolved = resolvePath(driveId, subpath, req.user);
+  if (!resolved || !resolved.permissions.upload) return res.status(403).json({ error: 'Sem permissão para renomear' });
+
+  const parentDir = path.dirname(resolved.fullPath);
+  const newPath = path.join(parentDir, newName);
+
+  // Security: prevent path traversal
+  if (!newPath.toLowerCase().startsWith(parentDir.toLowerCase())) {
+     return res.status(400).json({ error: 'Nome inválido' });
+  }
+
+  if (fs.existsSync(newPath)) {
+    return res.status(400).json({ error: 'Já existe um arquivo ou pasta com este nome' });
+  }
+
+  try {
+    fs.renameSync(resolved.fullPath, newPath);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao renomear: ' + e.message });
   }
 });
 
