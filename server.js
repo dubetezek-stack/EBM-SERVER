@@ -17,6 +17,8 @@ function addLog(level, msg, ip) {
 global.addLog = addLog;
 
 const dataDir = DATA_DIR;
+global.nextCheckTime = 0;
+global.nextUpdateTime = 0;
 
 const configPath = path.join(dataDir, 'config.json');
 if (!fs.existsSync(configPath)) {
@@ -72,6 +74,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/files', require('./routes/files'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/cameras', cameraRouter);
+app.use('/api/apps', require('./routes/apps'));
 
 // SPA fallback
 app.get('*', (req, res) => {

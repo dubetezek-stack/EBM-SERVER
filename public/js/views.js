@@ -5,10 +5,11 @@ function getUserRole() {
   if (window.app && window.app.user) return window.app.user.role;
   return '';
 }
-function renderExplorer() {
-  var role = getUserRole();
+function renderExplorer(user) {
+  var role = user ? user.role : '';
   var isAdmin = role === 'admin';
   var isMasterPlus = role === 'master' || role === 'admin';
+  var username = user ? user.username : 'Usuário';
   
   return '<div class="explorer-layout">' + 
     '<div class="top-bar">' + 
@@ -21,10 +22,10 @@ function renderExplorer() {
       '<div class="top-bar-actions">' + 
         '<div class="user-badge">' + 
           '<div class="user-badge-main">' + 
-            '<span class="user-badge-name">' + escapeHtml(window.app.user.username) + '</span>' + 
+            '<span class="user-badge-name">' + escapeHtml(username) + '</span>' + 
             '<span class="user-badge-role ' + role + '">' + (isAdmin ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'COMUM')) + '</span>' + 
           '</div>' + 
-          '<div class="user-badge-details">' + (window.app.user.ip || '---') + ' • ' + (window.app.user.mac || '---') + '</div>' + 
+          '<div class="user-badge-details">' + (user.ip || '---') + ' • ' + (user.mac || '---') + '</div>' + 
         '</div>' + 
         (isAdmin ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + 
         '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + 
@@ -37,6 +38,7 @@ function renderExplorer() {
       (isMasterPlus ? '<button class="toolbar-btn" id="btn-cameras" style="background:var(--accent-green);color:#fff;font-weight:600;gap:8px">' + Icons.camera + ' <span>Câmeras</span></button>' : '') + 
     '</div>' + 
     '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
+    renderDock() +
   '</div>';
 }
 function renderSpeedTestView() {
@@ -141,4 +143,101 @@ function renderFileList(files, driveId, subpath, drivePermissions) {
 
 function renderUploadZone() {
   return '<div class="upload-zone" id="upload-zone">' + Icons.upload + '<p>Arraste arquivos aqui ou clique para fazer upload</p>' + '<input type="file" id="upload-input" multiple style="display:none">' + '</div>';
+}
+
+function renderDesktopIcons(installedApps) {
+  var appsHtml = '';
+  // "Meu Servidor" icon (always first)
+  appsHtml += '<div class="desktop-icon" id="icon-explorer">' +
+                '<div class="icon-wrapper" style="background:#0078d4">' + Icons.monitor + '</div>' +
+                '<span>Meu Servidor</span>' +
+              '</div>';
+
+  installedApps.forEach(function(app) {
+    if (app.id === 'explorer') return; // Skip explorer as it's already there as "Meu Servidor"
+    var icon = Icons[app.icon] || Icons.file;
+    // Umbrel apps often have a specific background color
+    var bg = '#1c1c1e';
+    if (app.id === 'speedtest') bg = 'var(--accent-blue)';
+    else if (app.id === 'cameras') bg = 'var(--accent-green)';
+    else if (app.id === 'plex') bg = '#E5A00D';
+    else if (app.id === 'homeassistant') bg = '#03A9F4';
+
+    appsHtml += '<div class="desktop-icon" data-app-id="' + app.id + '">' +
+                  '<div class="icon-wrapper" style="background:' + bg + '">' + icon + '</div>' +
+                  '<span>' + escapeHtml(app.name) + '</span>' +
+                '</div>';
+  });
+  return appsHtml;
+}
+
+function renderDesktop(installedApps, user) {
+  var appsHtml = renderDesktopIcons(installedApps);
+
+  var greeting = getGreeting();
+  var userName = user ? user.username : 'Usuário';
+
+  return '<div class="desktop-view">' +
+           '<div class="desktop-header">' +
+             '<div class="desktop-greeting">' + greeting + ', ' + escapeHtml(userName) + '.</div>' +
+             '<div class="desktop-search">' +
+               Icons.search +
+               '<input type="text" placeholder="Pesquisar..." id="desktop-search-input">' +
+               '<span class="shortcut-hint">Ctrl+K</span>' +
+             '</div>' +
+           '</div>' +
+           '<div class="desktop-content">' +
+             '<div class="desktop-icons">' + appsHtml + '</div>' +
+           '</div>' +
+           renderDock() +
+         '</div>';
+}
+
+function getGreeting() {
+  var hour = new Date().getHours();
+  if (hour < 12) return 'Bom dia';
+  if (hour < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+function renderDock() {
+  return '<div class="dock-container">' +
+           '<div class="dock">' +
+             '<div class="dock-item" data-view="home" id="dock-home" title="Início">' + Icons.home + '</div>' +
+             '<div class="dock-item" data-view="files" id="dock-explorer" title="Arquivos">' + Icons.folder + '</div>' +
+             '<div class="dock-item" data-view="store" id="dock-appstore" title="App Store">' + Icons.appstore + '</div>' +
+             '<div class="dock-divider"></div>' +
+             '<div class="dock-item" data-view="settings" id="dock-settings" title="Configurações">' + Icons.settings + '</div>' +
+             '<div class="dock-item" data-view="logout" id="dock-logout" title="Sair">' + Icons.logout + '</div>' +
+           '</div>' +
+         '</div>';
+}
+
+function renderAppStore(availableApps, installedIds) {
+  var appsHtml = '';
+  availableApps.forEach(function(app) {
+    var isInstalled = installedIds.includes(app.id);
+    var icon = Icons[app.icon] || Icons.file;
+    appsHtml += '<div class="app-card">' +
+                  '<div class="app-card-icon">' + icon + '</div>' +
+                  '<div class="app-card-info">' +
+                    '<div class="app-card-name">' + escapeHtml(app.name) + '</div>' +
+                    '<div class="app-card-desc">' + escapeHtml(app.description) + '</div>' +
+                    '<div class="app-card-actions">' +
+                      (isInstalled ? 
+                        '<button class="btn-install installed" disabled>Instalado</button>' : 
+                        '<button class="btn-install" data-app-id="' + app.id + '">Instalar</button>') +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+  });
+
+  return '<div class="app-store-view">' +
+           '<div class="app-store-header">' +
+             '<h2>App Store</h2>' +
+             '<p>Descubra e instale novos aplicativos no seu servidor</p>' +
+           '</div>' +
+           '<div class="app-store-grid">' + appsHtml + '</div>' +
+           renderDock() +
+         '</div>';
 }

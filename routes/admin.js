@@ -173,8 +173,8 @@ router.get('/server', (req, res) => {
     dnsAutoRefresh: config.dnsAutoRefresh !== false,
     dnsInterval: config.dnsInterval || 5,
     dnsCheckInterval: config.dnsCheckInterval || 1,
-    nextCheckTime: global.nextCheckTime || 0,
-    nextUpdateTime: global.nextUpdateTime || 0,
+    nextCheckSeconds: global.nextCheckTime ? Math.max(0, Math.floor((global.nextCheckTime - Date.now()) / 1000)) : 0,
+    nextUpdateSeconds: global.nextUpdateTime ? Math.max(0, Math.floor((global.nextUpdateTime - Date.now()) / 1000)) : 0,
     camera: config.camera || { ip: '', port: '', user: '', pass: '', rtspPort: 554 }
   });
 });
@@ -214,6 +214,8 @@ router.put('/server', (req, res) => {
     dnsAutoRefresh: config.dnsAutoRefresh !== false,
     dnsInterval: config.dnsInterval || 5,
     dnsCheckInterval: config.dnsCheckInterval || 1,
+    nextCheckSeconds: global.nextCheckTime ? Math.max(0, Math.floor((global.nextCheckTime - Date.now()) / 1000)) : 0,
+    nextUpdateSeconds: global.nextUpdateTime ? Math.max(0, Math.floor((global.nextUpdateTime - Date.now()) / 1000)) : 0,
     needsRestart: port ? true : false
   });
 });

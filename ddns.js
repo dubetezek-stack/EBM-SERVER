@@ -20,7 +20,12 @@ function pingDomain(domain) {
 }
 
 async function getPublicIP() {
-  const services = ['https://api.ipify.org', 'https://icanhazip.com', 'https://checkip.amazonaws.com'];
+  const services = [
+    'https://api.ipify.org', 
+    'https://icanhazip.com', 
+    'https://checkip.amazonaws.com',
+    'https://v4.ident.me'
+  ];
   for (const url of services) {
     try {
       return await new Promise((resolve, reject) => {
@@ -69,12 +74,15 @@ async function checkStatus(config) {
       const domainList = rec.domains.split(',').map(d => d.trim()).filter(Boolean);
       const primaryDomain = domainList[0].includes('.') ? domainList[0] : domainList[0] + '.duckdns.org';
 
-      const dnsIp = await pingDomain(primaryDomain);
+      const dnsIp = (await pingDomain(primaryDomain)).trim();
       
       records[i].lastDnsIp = dnsIp;
       if (currentIp) {
         records[i].lastIp = currentIp;
-        records[i].lastStatus = (currentIp === dnsIp) ? 'OK' : 'KO';
+        records[i].lastStatus = (currentIp.trim() === dnsIp) ? 'OK' : 'KO';
+        if (global.addLog && currentIp.trim() !== dnsIp) {
+          global.addLog('WARNING', `Divergência detectada em ${primaryDomain}: Atual=${currentIp} | DNS=${dnsIp}`, 'DDNS');
+        }
       }
       changed = true;
     }
@@ -165,6 +173,8 @@ function initDDNS() {
   if (!config) return;
   
   if (config.dnsAutoRefresh === false) {
+    global.nextCheckTime = 0;
+    global.nextUpdateTime = 0;
     if (global.addLog) global.addLog('SYSTEM', 'DDNS Automático desativado nas configurações', 'DDNS');
     return;
   }
@@ -172,6 +182,8 @@ function initDDNS() {
   const records = config.dnsRecords || [];
   const hasEnabled = records.some(r => r.enabled);
   if (!hasEnabled) {
+    global.nextCheckTime = 0;
+    global.nextUpdateTime = 0;
     if (global.addLog) global.addLog('SYSTEM', 'DDNS Suspenso: Nenhum domínio habilitado', 'DDNS');
     return;
   }
@@ -184,25 +196,26 @@ function initDDNS() {
 
   if (global.addLog) global.addLog('SYSTEM', `DDNS Iniciado — Check: ${config.dnsCheckInterval || 1}m | Update: ${config.dnsInterval || 5}m`, 'DDNS');
 
-  // On start: full update (get IP + DuckDNS update + ping)
+  // On start: full update
   updateDDNS(config).catch(() => {});
 
   // On interval: status ping only
   statusInterval = setInterval(() => {
-    global.nextCheckTime = Date.now() + checkMs;
     const cfg = readJSON(configPath);
-    if (cfg.dnsAutoRefresh === false) return;
+    if (!cfg || cfg.dnsAutoRefresh === false) return;
+    const interval = (parseInt(cfg.dnsCheckInterval) || 1) * 60000;
+    global.nextCheckTime = Date.now() + interval;
     checkStatus(cfg).catch(() => {});
-  }, checkMs);
+  }, (parseInt(config.dnsCheckInterval) || 1) * 60000);
 
   // On interval: full update
   global.updateInterval = setInterval(() => {
-    global.nextUpdateTime = Date.now() + updateMs;
     const cfg = readJSON(configPath);
-    if (cfg.dnsAutoRefresh === false) return;
+    if (!cfg || cfg.dnsAutoRefresh === false) return;
+    const interval = (parseInt(cfg.dnsInterval) || 5) * 60000;
+    global.nextUpdateTime = Date.now() + interval;
     updateDDNS(cfg).catch(() => {});
-  }, updateMs);
+  }, (parseInt(config.dnsInterval) || 5) * 60000);
 }
 
 module.exports = { initDDNS, updateDDNS, checkStatus, getPublicIP };
-

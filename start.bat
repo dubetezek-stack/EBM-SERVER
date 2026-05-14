@@ -18,6 +18,9 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
+:: Encerrar instâncias anteriores para evitar conflito de porta
+taskkill /F /IM node.exe /T 2>nul
+
 :run
 :: Get configured port
 set PORT=3000
