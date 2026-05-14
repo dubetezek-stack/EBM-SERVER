@@ -34,6 +34,7 @@ function renderExplorer(user) {
     '<div class="toolbar">' + 
       '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + 
       '<button class="toolbar-btn" id="btn-upload" style="display:none">' + Icons.upload + ' <span>Upload</span></button>' + 
+      '<button class="toolbar-btn" id="btn-new-folder" style="display:none">' + Icons.folderPlus + ' <span>Nova Pasta</span></button>' + 
     '</div>' + 
     renderUploadZone() +
     '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
@@ -164,7 +165,7 @@ function renderFileList(files, driveId, subpath, drivePermissions) {
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
     var filePath = subpath ? subpath + '/' + f.name : f.name;
-    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '">' + '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + '<td class="file-date">' + formatDate(f.modified) + '</td>' + '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + (canDelete ? '<td><button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button></td>' : '') + '</tr>';
+    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" data-size="' + (f.size || 0) + '">' + '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + '<td class="file-date">' + formatDate(f.modified) + '</td>' + '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + (canDelete ? '<td><button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button></td>' : '') + '</tr>';
   }
   html += '</tbody></table></div>';
   return html;
@@ -411,13 +412,92 @@ function renderNewDriveForm(users, currentUserIsAdmin) {
              return '<div class="color-option ' + (i === 0 ? 'selected' : '') + '" data-color="' + c + '" style="background:' + c + '"></div>';
            }).join('') +
          '</div></div>' +
+
+         (currentUserIsAdmin ? 
+           '<div style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px" id="new-drive-group-perms">' +
+             '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Permissões de Grupo</div>' +
+             '<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px">' +
+               '<div class="card-perm-row">' +
+                 '<span style="font-size:13px">Administradores</span><span class="admin-pill">Acesso Total</span>' +
+               '</div>' +
+               '<div class="card-perm-row">' +
+                 '<span style="font-size:13px">Usuários Master</span>' +
+                 '<div style="display:flex;gap:16px">' +
+                   '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;color:var(--accent);font-weight:600"><input type="checkbox" class="p-m-manage"> Acesso</label>' +
+                   '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-read" checked> Leitura</label>' +
+                   '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-upload" checked> Escrita</label>' +
+                   '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-delete"> Apagar</label>' +
+                 '</div>' +
+               '</div>' +
+               '<div class="card-perm-row">' +
+                 '<span style="font-size:13px">Usuários Comuns</span>' +
+                 '<div style="display:flex;gap:16px">' +
+                   '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-read" checked> Leitura</label>' +
+                   '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-upload"> Escrita</label>' +
+                   '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-u-delete"> Apagar</label>' +
+                 '</div>' +
+               '</div>' +
+             '</div>' +
+           '</div>' : '') +
+
          '<div style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px">' +
-           '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
-           '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto" id="new-drive-permissions">' +
+           '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
+             '<div style="font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+             '<div class="search-box-mini" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px; padding:4px 10px; display:flex; align-items:center; gap:6px; width:150px">' +
+               Icons.search + '<input class="user-search-input" placeholder="Buscar..." style="background:transparent; border:none; color:#fff; font-size:11px; outline:none; width:100%"></div>' +
+           '</div>' +
+           '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto" id="new-drive-permissions" class="user-list-container">' +
              usersList +
            '</div>' +
          '</div>' +
          '<div class="form-actions" style="margin-top:30px">' +
            '<button class="btn btn-primary" id="save-new-drive" style="width:100%">Adicionar Drive</button>' +
+         '</div>';
+}
+
+function renderPreviewModal(driveId, subpath, file) {
+  var ext = (file.name.split('.').pop() || '').toLowerCase();
+  var name = escapeHtml(file.name);
+  var previewUrl = '/api/files/preview?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath);
+  var downloadUrl = '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath);
+  var token = API.token;
+  if (token) {
+    previewUrl += '&token=' + token;
+    downloadUrl += '&token=' + token;
+  }
+
+  var contentHtml = '';
+  var imgExts = ['jpg','jpeg','png','gif','bmp','webp','svg'];
+  var vidExts = ['mp4','mkv','avi','mov','webm'];
+  var audExts = ['mp3','wav','flac','ogg'];
+
+  if (imgExts.indexOf(ext) >= 0) {
+    contentHtml = '<img src="' + previewUrl + '" style="max-width:100%; max-height:calc(90vh - 120px); border-radius:4px">';
+  } else if (vidExts.indexOf(ext) >= 0) {
+    contentHtml = '<video src="' + previewUrl + '" controls style="max-width:100%; max-height:calc(90vh - 120px); border-radius:4px"></video>';
+  } else if (audExts.indexOf(ext) >= 0) {
+    contentHtml = '<div style="padding:40px; text-align:center"><div style="font-size:48px; margin-bottom:20px">' + Icons.audio + '</div><audio src="' + previewUrl + '" controls style="width:100%"></audio></div>';
+  } else if (ext === 'pdf') {
+    contentHtml = '<iframe src="' + previewUrl + '" style="width:100%; height:calc(90vh - 120px); border:none; background:#fff; border-radius:4px"></iframe>';
+  } else {
+    contentHtml = '<div id="preview-text-content" style="background:#000; color:#eee; padding:20px; font-family:monospace; font-size:13px; width:100%; height:calc(90vh - 120px); overflow:auto; white-space:pre-wrap; border-radius:4px">Carregando...</div>';
+  }
+
+  return '<div class="modal-overlay" id="preview-overlay" style="z-index:2000">' +
+           '<div class="modal-content" style="width:90%; max-width:1000px; max-height:95vh; padding:0; overflow:hidden; background:var(--bg-primary); border:1px solid var(--border)">' +
+             '<div class="modal-header" style="padding:15px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center">' +
+               '<div style="display:flex; align-items:center; gap:12px">' +
+                 '<div style="width:32px; height:32px">' + getFileIcon({name: file.name, isDirectory: false, extension: '.'+ext}) + '</div>' +
+                 '<div style="display:flex; flex-direction:column"><span style="font-weight:600; font-size:14px">' + name + '</span><span style="font-size:11px; color:var(--text-secondary)">' + formatSize(file.size) + '</span></div>' +
+               '</div>' +
+               '<div style="display:flex; gap:10px">' +
+                 '<a href="' + downloadUrl + '" class="btn btn-icon" title="Download" download>' + Icons.download + '</a>' +
+                 '<button class="btn btn-icon" id="btn-close-preview">' + Icons.close + '</button>' +
+               '</div>' +
+             '</div>' +
+             '<div class="modal-body" style="padding:10px; background:rgba(0,0,0,0.4); display:flex; justify-content:center; align-items:center; min-height:200px">' +
+               contentHtml +
+             '</div>' +
+           '</div>' +
          '</div>';
 }

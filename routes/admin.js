@@ -33,10 +33,11 @@ router.get('/drives', (req, res) => {
     return res.json(config.drives || []);
   }
   
-  // Filter for Masters: only drives where byUser[id].manage === true
+  // Filter for Masters: only drives where byUser[id].manage === true OR byRole[role].manage === true
   const drives = (config.drives || []).filter(d => {
-    if (!d.permissions || !d.permissions.byUser || !d.permissions.byUser[user.id]) return false;
-    return !!d.permissions.byUser[user.id].manage;
+    if (d.permissions?.byUser?.[user.id]?.manage === true) return true;
+    if (d.permissions?.[user.role]?.manage === true) return true;
+    return false;
   });
   
   res.json(drives);
@@ -147,7 +148,9 @@ router.get('/browse/drives', requireMaster, (req, res) => {
     const config = readJSON(configPath) || { drives: [] };
     const drives = config.drives || [];
     const managed = drives.filter(d => {
-      return d.permissions?.byUser?.[userId]?.manage === true;
+      if (d.permissions?.byUser?.[userId]?.manage === true) return true;
+      if (d.permissions?.[role]?.manage === true) return true;
+      return false;
     });
 
     return res.json(managed.map(d => ({
@@ -200,7 +203,9 @@ router.get('/browse/path', requireMaster, (req, res) => {
     const config = readJSON(configPath) || { drives: [] };
     const drives = config.drives || [];
     const isAllowed = drives.some(d => {
-      return d.permissions?.byUser?.[userId]?.manage === true && folderPath.toLowerCase().startsWith(d.path.toLowerCase());
+      const hasIndiv = d.permissions?.byUser?.[userId]?.manage === true;
+      const hasGroup = d.permissions?.[role]?.manage === true;
+      return (hasIndiv || hasGroup) && folderPath.toLowerCase().startsWith(d.path.toLowerCase());
     });
     if (!isAllowed) return res.status(403).json({ error: 'Acesso negado a este caminho' });
   }

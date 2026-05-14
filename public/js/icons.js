@@ -35,7 +35,8 @@ var Icons = {
   explorer: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>',
   speedtest: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c0-5.5 4.5-10 10-10s10 4.5 10 10"/><path d="M12 17v4"/><path d="M8 17l-1 2"/><path d="M16 17l1 2"/><path d="M12 12l5-5"/><circle cx="12" cy="12" r="1"/></svg>',
   cameras: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>',
-  transmission: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10a10 10 0 0020 0V7l-10-5z"/><polyline points="2 7 12 12 22 7"/><polyline points="12 12 12 22"/></svg>'
+  transmission: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10a10 10 0 0020 0V7l-10-5z"/><polyline points="2 7 12 12 22 7"/><polyline points="12 12 12 22"/></svg>',
+  folderPlus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 6a2 2 0 012-2h5l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/><line x1="12" y1="10" x2="12" y2="16"/><line x1="9" y1="13" x2="15" y2="13"/></svg>'
 };
 
 function getFileIcon(file) {

@@ -281,6 +281,47 @@ router.delete('/delete', (req, res) => {
   } catch (e) { res.status(500).json({ error: 'Erro ao apagar: ' + e.message }); }
 });
 
+// Create new folder (Respecting Upload Permission)
+router.post('/mkdir', (req, res) => {
+  const { driveId, subpath, name } = req.body;
+  if (!driveId || !name) return res.status(400).json({ error: 'driveId e nome da pasta são obrigatórios' });
+
+  const resolved = resolvePath(driveId, subpath || '', req.user);
+  if (!resolved) {
+    addLog('ERROR', 'MKDIR: Resolve failed for drive ' + driveId + ', subpath ' + subpath);
+    return res.status(403).json({ error: 'Acesso negado' });
+  }
+
+  if (!resolved.permissions.upload) {
+    return res.status(403).json({ error: 'Você não possui permissão para criar pastas neste drive' });
+  }
+
+  const folderPath = path.join(resolved.fullPath, name);
+  const resolvedFullPath = path.resolve(folderPath);
+  
+  // Ensure we compare against a path ending with a separator to prevent sibling directory attacks
+  const parentPath = resolved.fullPath.endsWith(path.sep) ? resolved.fullPath : resolved.fullPath + path.sep;
+  
+  addLog('DEBUG', 'MKDIR: name=' + name + ', parentPath=' + parentPath + ', target=' + resolvedFullPath);
+
+  // Security: prevent path traversal if name contains ../
+  if (!resolvedFullPath.toLowerCase().startsWith(parentPath.toLowerCase())) {
+    addLog('ERROR', 'MKDIR: Path traversal attempt? target=' + resolvedFullPath + ' vs parent=' + parentPath);
+    return res.status(400).json({ error: 'Nome de pasta inválido' });
+  }
+
+  if (fs.existsSync(folderPath)) {
+    return res.status(400).json({ error: 'Já existe uma pasta ou arquivo com este nome' });
+  }
+
+  try {
+    fs.mkdirSync(folderPath);
+    res.json({ success: true, name });
+  } catch (e) {
+    res.status(500).json({ error: 'Erro ao criar pasta: ' + e.message });
+  }
+});
+
 // Search files recursively
 router.get('/search', (req, res) => {
   const { driveId, subpath, q } = req.query;

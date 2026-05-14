@@ -55,6 +55,7 @@ function renderDrivesConfig(drives, users, currentUserIsAdmin) {
                     '<div class="card-perm-row">' +
                       '<span style="font-size:13px">Usuários Master</span>' +
                       '<div style="display:flex;gap:16px">' +
+                        '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;color:var(--accent);font-weight:600"><input type="checkbox" class="p-m-manage" ' + (p.master?.manage ? 'checked' : '') + '> Acesso</label>' +
                         '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-read" ' + (p.master?.read ? 'checked' : '') + '> Leitura</label>' +
                         '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-upload" ' + (p.master?.upload ? 'checked' : '') + '> Escrita</label>' +
                         '<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer"><input type="checkbox" class="p-m-delete" ' + (p.master?.delete ? 'checked' : '') + '> Apagar</label>' +
@@ -70,8 +71,12 @@ function renderDrivesConfig(drives, users, currentUserIsAdmin) {
                     '</div>' +
                   '</div>' : '') +
 
-                '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
-                '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
+                  '<div style="font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+                  '<div class="search-box-mini" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px; padding:4px 10px; display:flex; align-items:center; gap:6px; width:150px">' +
+                    Icons.search + '<input class="user-search-input" placeholder="Buscar..." style="background:transparent; border:none; color:#fff; font-size:11px; outline:none; width:100%"></div>' +
+                '</div>' +
+                '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto" class="user-list-container">' +
                   (users || []).filter(function(u){return u.role !== 'admin';}).map(function(u) {
                     var up = byUser[u.id] || (u.role === 'master' ? p.master : p.user) || {};
                     return '<div class="card-user-row" data-user-id="' + u.id + '">' +
@@ -424,11 +429,15 @@ function renderAppsConfig(apps, isAdmin) {
                   '</div>' : '') +
 
                 (app.users && app.users.length > 0 ? 
-                  '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
-                  '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto">' +
+                  '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">' +
+                    '<div style="font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso Individual</div>' +
+                    '<div class="search-box-mini" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:12px; padding:4px 10px; display:flex; align-items:center; gap:6px; width:150px">' +
+                      Icons.search + '<input class="user-search-input" placeholder="Buscar..." style="background:transparent; border:none; color:#fff; font-size:11px; outline:none; width:100%"></div>' +
+                  '</div>' +
+                  '<div style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto" class="user-list-container">' +
                     app.users.map(function(user) {
                       var isAdmin = user.role === 'admin';
-                      return '<div class="card-user-row">' +
+                      return '<div class="card-user-row" data-user-id="' + user.id + '">' +
                                '<div style="display:flex; flex-direction:column"><span style="font-size:13px; font-weight:500">' + escapeHtml(user.username) + '</span><span style="font-size:11px; color:var(--text-secondary)">' + (user.role === 'master' ? 'Master' : 'Usuário') + '</span></div>' +
                                (isAdmin ? '<span style="font-size:11px; color:#0fa36b; font-weight:600">Automático</span>' : 
                                  '<label class="switch" style="transform:scale(0.8)"><input type="checkbox" class="app-user-toggle" data-app-id="' + app.id + '" data-user-id="' + user.id + '" ' + (user.hasAccess ? 'checked' : '') + '><span class="slider"></span></label>'

@@ -344,8 +344,11 @@ var App = /*#__PURE__*/function () {
         body.innerHTML = renderDrivesConfig(drives, users, isAdmin);
         self.bindBrowse();
         
-        // Color selection logic for each card
+        // Logic for each card
         document.querySelectorAll('.drive-cfg-card').forEach(function(card) {
+          self.bindPermissionLogic(card);
+          self.bindUserSearch(card);
+          
           card.querySelectorAll('.color-option').forEach(function(opt) {
             opt.onclick = function() {
               card.querySelectorAll('.color-option').forEach(function(x){ x.classList.remove('selected'); });
@@ -383,6 +386,7 @@ var App = /*#__PURE__*/function () {
             // Only add group permissions if they are present in the DOM (Admin only)
             if (card.querySelector('.p-m-read')) {
               data.permissions.master = {
+                manage: !!card.querySelector('.p-m-manage')?.checked,
                 read: card.querySelector('.p-m-read').checked,
                 upload: card.querySelector('.p-m-upload').checked,
                 delete: card.querySelector('.p-m-delete').checked
@@ -417,6 +421,7 @@ var App = /*#__PURE__*/function () {
               
               // Apply checkbox dependency logic (Leitura disables others)
               self.bindPermissionLogic(container);
+              self.bindUserSearch(container);
 
               document.getElementById('close-new-drive-modal').onclick = function() { modal.style.display = 'none'; };
               document.getElementById('btn-browse-new').onclick = function() {
@@ -453,6 +458,25 @@ var App = /*#__PURE__*/function () {
                     byUser: byUser
                   }
                 };
+
+                // Add group permissions if present (Admin only)
+                var mRead = document.querySelector('#new-drive-group-perms .p-m-read');
+                if (mRead) {
+                  data.permissions.master = {
+                    manage: !!document.querySelector('#new-drive-group-perms .p-m-manage')?.checked,
+                    read: mRead.checked,
+                    upload: document.querySelector('#new-drive-group-perms .p-m-upload').checked,
+                    delete: document.querySelector('#new-drive-group-perms .p-m-delete').checked
+                  };
+                }
+                var uRead = document.querySelector('#new-drive-group-perms .p-u-read');
+                if (uRead) {
+                  data.permissions.user = {
+                    read: uRead.checked,
+                    upload: document.querySelector('#new-drive-group-perms .p-u-upload').checked,
+                    delete: document.querySelector('#new-drive-group-perms .p-u-delete').checked
+                  };
+                }
 
                 if (!data.name || !data.path) return showToast('Preencha nome e caminho', 'warning');
                 API.post('/admin/drives', data).then(function() {
@@ -564,6 +588,11 @@ var App = /*#__PURE__*/function () {
         var isAdmin = role === 'admin';
         body.innerHTML = renderAppsConfig(apps || [], isAdmin);
         
+        // Bind user search for each app card
+        document.querySelectorAll('.app-cfg-card').forEach(function(card) {
+          self.bindUserSearch(card);
+        });
+
         // Bind card expansion
         self.bindCardExpansion(body);
 
@@ -1183,6 +1212,22 @@ var App = /*#__PURE__*/function () {
         }
       };
     }
+    
+    var btnNewFolder = document.getElementById('btn-new-folder');
+    if (btnNewFolder) {
+      btnNewFolder.onclick = function() {
+        var name = prompt('Nome da nova pasta:');
+        if (!name || !name.trim()) return;
+        API.post('/files/mkdir', {
+          driveId: self.currentDriveId,
+          subpath: self.currentPath,
+          name: name.trim()
+        }).then(function() {
+          showToast('Pasta criada!', 'success');
+          self.loadFiles(self.currentDriveId, self.currentPath);
+        }).catch(function(e) { showToast(e.message, 'error'); });
+      };
+    }
 
     // Bind Drag & Drop
     self.bindDragAndDrop();
@@ -1215,6 +1260,9 @@ var App = /*#__PURE__*/function () {
 
     API.get('/files/drives').then(function(drives) {
       self.drives = drives || [];
+      var breadcrumb = document.getElementById('breadcrumb');
+      if (breadcrumb) breadcrumb.innerHTML = '<span class="breadcrumb-item active">Este Computador</span>';
+
       if (content) {
         content.innerHTML = renderDrives(drives);
         document.querySelectorAll('.drive-card').forEach(function(el) {
@@ -1237,20 +1285,73 @@ var App = /*#__PURE__*/function () {
       self.currentPath = subpath;
       self.currentDrivePermissions = data.permissions;
       
-      // Show upload button in toolbar if permitted
+      // Show upload and new folder buttons in toolbar if permitted
       var btnUpload = document.getElementById('btn-upload');
-      if (btnUpload) btnUpload.style.display = data.permissions.upload ? 'flex' : 'none';
+      var btnNewFolder = document.getElementById('btn-new-folder');
+      var canUpload = !!(data.permissions && data.permissions.upload);
+      
+      if (btnUpload) btnUpload.style.display = canUpload ? 'flex' : 'none';
+      if (btnNewFolder) btnNewFolder.style.display = canUpload ? 'flex' : 'none';
 
       if (content) {
         content.innerHTML = renderFileList(data.files || [], driveId, subpath, data.permissions);
         self.bindFileActions(driveId, subpath);
         
-        // Handle upload button visibility
-        var btnUpload = document.getElementById('btn-upload');
-        if (btnUpload) {
-          btnUpload.style.display = (res.permissions && res.permissions.upload) ? 'flex' : 'none';
+        // Update Breadcrumb
+        var breadcrumb = document.getElementById('breadcrumb');
+        if (breadcrumb) {
+          var pathHtml = '<span class="breadcrumb-item clickable" data-path="root">Este Computador</span>';
+          pathHtml += '<span class="breadcrumb-sep">/</span><span class="breadcrumb-item clickable" data-drive="' + driveId + '" data-path="">' + escapeHtml(data.driveName || 'Drive') + '</span>';
+          
+          if (subpath) {
+            var parts = subpath.split('/');
+            var current = '';
+            parts.forEach(function(p) {
+              if (!p) return;
+              current = current ? current + '/' + p : p;
+              pathHtml += '<span class="breadcrumb-sep">/</span><span class="breadcrumb-item clickable" data-drive="' + driveId + '" data-path="' + current + '">' + escapeHtml(p) + '</span>';
+            });
+          }
+          breadcrumb.innerHTML = pathHtml;
+          self.bindBreadcrumb();
         }
       }
+    });
+  };
+
+  _proto.previewFile = function previewFile(driveId, subpath, file) {
+    var self = this;
+    var modalHtml = renderPreviewModal(driveId, subpath, file);
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    var overlay = document.getElementById('preview-overlay');
+    document.getElementById('btn-close-preview').onclick = function() { overlay.remove(); };
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    // If it's a text file, we need to fetch the content via API
+    var textContainer = document.getElementById('preview-text-content');
+    if (textContainer) {
+      API.get('/files/preview?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath)).then(function(res) {
+        if (res && res.type === 'text') {
+          textContainer.textContent = res.content;
+        } else {
+          textContainer.textContent = 'Erro ao carregar conteúdo.';
+        }
+      }).catch(function(e) {
+        textContainer.textContent = 'Erro: ' + e.message;
+      });
+    }
+  };
+
+  _proto.bindBreadcrumb = function bindBreadcrumb() {
+    var self = this;
+    document.querySelectorAll('.breadcrumb-item.clickable').forEach(function(el) {
+      el.onclick = function() {
+        var driveId = this.getAttribute('data-drive');
+        var path = this.getAttribute('data-path');
+        if (path === 'root') self.navigate('explorer');
+        else self.navigate('explorer', { driveId: driveId, subpath: path });
+      };
     });
   };
 
@@ -1264,6 +1365,10 @@ var App = /*#__PURE__*/function () {
         if (isDir) {
           var newPath = subpath ? subpath + '/' + name : name;
           self.navigate('explorer', { driveId: driveId, subpath: newPath });
+        } else {
+          var filePath = subpath ? subpath + '/' + name : name;
+          var size = parseInt(this.getAttribute('data-size')) || 0;
+          self.previewFile(driveId, filePath, { name: name, size: size });
         }
       };
     });
@@ -1408,6 +1513,25 @@ var App = /*#__PURE__*/function () {
         updateState(row); // Initial state
       }
     });
+  };
+
+  _proto.bindUserSearch = function(container) {
+    var searchInput = container.querySelector('.user-search-input');
+    var listContainer = container.querySelector('.user-list-container');
+    if (!searchInput || !listContainer) return;
+
+    searchInput.oninput = function() {
+      var query = this.value.toLowerCase();
+      var rows = listContainer.querySelectorAll('.card-user-row');
+      rows.forEach(function(row) {
+        var username = row.querySelector('span').textContent.toLowerCase();
+        if (username.indexOf(query) !== -1) {
+          row.style.display = 'flex';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    };
   };
 
   _proto.bindDragAndDrop = function() {
