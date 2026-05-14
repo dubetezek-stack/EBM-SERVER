@@ -75,6 +75,7 @@ app.use('/api/files', require('./routes/files'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/cameras', cameraRouter);
 app.use('/api/apps', require('./routes/apps'));
+app.use('/api/user', require('./routes/user'));
 
 // SPA fallback
 app.get('*', (req, res) => {

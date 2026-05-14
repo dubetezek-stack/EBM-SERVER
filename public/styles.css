@@ -1744,3 +1744,101 @@ input:checked + .slider:before { transform: translateX(20px); }
   color: #a1a1a1; /* Silver/Gray for User */
 }
 
+/* ===== WALLPAPER MODAL ===== */
+.wallpaper-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.wallpaper-modal {
+  width: 90%;
+  max-width: 800px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  box-shadow: var(--shadow);
+}
+
+.wallpaper-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wallpaper-modal-tabs {
+  display: flex;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 20px;
+}
+
+.wallpaper-tab {
+  padding: 12px 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.wallpaper-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.wallpaper-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.wallpaper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.wallpaper-item {
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: var(--transition);
+  background: #000;
+}
+
+.wallpaper-item:hover {
+  transform: scale(1.02);
+}
+
+.wallpaper-item.active {
+  border-color: var(--accent);
+}
+
+.wallpaper-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.desktop-view {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image 0.5s ease;
+}
+

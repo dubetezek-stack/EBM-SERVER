@@ -221,10 +221,12 @@ function renderDesktop(installedApps, user) {
 
   var greeting = getGreeting();
   var userName = user ? user.username : 'Usuário';
+  var wallpaper = (user && user.settings && user.settings.wallpaper) || '';
+  var style = wallpaper ? ' style="background-image:url(' + wallpaper + '); background-size:cover; background-position:center"' : '';
 
-  return '<div class="desktop-view">' +
+  return '<div class="desktop-view"' + style + '>' +
            '<div class="desktop-header">' +
-             '<div class="desktop-greeting">' + greeting + ', ' + escapeHtml(userName) + '.</div>' +
+             '<div class="desktop-greeting">' + greeting + ', ' + escapeHtml(userName) + '. <button id="btn-personalize" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;margin-left:10px;text-decoration:underline">Personalizar</button></div>' +
              '<div class="desktop-search">' +
                Icons.search +
                '<input type="text" placeholder="Pesquisar..." id="desktop-search-input">' +
@@ -243,6 +245,40 @@ function getGreeting() {
   if (hour < 12) return 'Bom dia';
   if (hour < 18) return 'Boa tarde';
   return 'Boa noite';
+}
+
+function renderWallpaperMenu(wallpapers) {
+  var html = '<div class="wallpaper-modal-overlay" id="wallpaper-overlay">' +
+               '<div class="wallpaper-modal">' +
+                 '<div class="wallpaper-modal-header">' +
+                   '<h3 style="font-size:18px">Personalizar Desktop</h3>' +
+                   '<button class="btn-icon" id="btn-close-wallpaper">' + Icons.close + '</button>' +
+                 '</div>' +
+                 '<div class="wallpaper-modal-tabs">' +
+                    '<button class="wallpaper-tab active" data-tab="gallery">Galeria</button>' +
+                    '<button class="wallpaper-tab" data-tab="upload">Enviar Imagem</button>' +
+                 '</div>' +
+                 '<div class="wallpaper-modal-content" id="wallpaper-modal-gallery">' +
+                   '<div class="wallpaper-grid">';
+                   
+  (wallpapers || []).forEach(function(w) {
+    html += '<div class="wallpaper-item" data-url="' + w + '">' +
+              '<img src="' + w + '" loading="lazy">' +
+            '</div>';
+  });
+
+  html +=          '</div>' +
+                 '</div>' +
+                 '<div class="wallpaper-modal-content" id="wallpaper-modal-upload" style="display:none">' +
+                    '<div class="upload-zone" id="wallpaper-upload-zone" style="height:200px; border:2px dashed var(--border); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer">' +
+                      Icons.upload +
+                      '<p style="margin-top:10px">Selecione uma imagem do seu computador</p>' +
+                      '<input type="file" id="wallpaper-upload-input" accept="image/*" style="display:none">' +
+                    '</div>' +
+                 '</div>' +
+               '</div>' +
+             '</div>';
+  return html;
 }
 
 function renderDock() {

@@ -241,6 +241,10 @@ var App = /*#__PURE__*/function () {
     appEl._desktopBound = true;
     
     appEl.addEventListener('click', function(e) {
+      if (e.target.id === 'btn-personalize') {
+        self.showWallpaperMenu();
+        return;
+      }
       var icon = e.target.closest('.desktop-icon');
       if (!icon) return;
       
@@ -1694,6 +1698,95 @@ var App = /*#__PURE__*/function () {
       });
     }
   });
+
+  _proto.showWallpaperMenu = function() {
+    var self = this;
+    API.get('/user/wallpapers').then(function(wallpapers) {
+      document.body.insertAdjacentHTML('beforeend', renderWallpaperMenu(wallpapers));
+      self.bindWallpaperEvents();
+    });
+  };
+
+  _proto.bindWallpaperEvents = function() {
+    var self = this;
+    var overlay = document.getElementById('wallpaper-overlay');
+    var btnClose = document.getElementById('btn-close-wallpaper');
+    if (btnClose) btnClose.onclick = function() { overlay.remove(); };
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    // Tabs
+    document.querySelectorAll('.wallpaper-tab').forEach(function(tab) {
+      tab.onclick = function() {
+        document.querySelectorAll('.wallpaper-tab').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        var target = this.getAttribute('data-tab');
+        document.getElementById('wallpaper-modal-gallery').style.display = target === 'gallery' ? 'block' : 'none';
+        document.getElementById('wallpaper-modal-upload').style.display = target === 'upload' ? 'block' : 'none';
+      };
+    });
+
+    // Gallery selection
+    document.querySelectorAll('.wallpaper-item').forEach(function(item) {
+      item.onclick = function() {
+        var url = this.getAttribute('data-url');
+        self.updateWallpaper(url);
+        overlay.remove();
+      };
+    });
+
+    // Upload
+    var zone = document.getElementById('wallpaper-upload-zone');
+    var input = document.getElementById('wallpaper-upload-input');
+    if (zone && input) {
+      zone.onclick = function() { input.click(); };
+      input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (file) self.uploadWallpaper(file, overlay);
+      };
+    }
+  };
+
+  _proto.updateWallpaper = function(url) {
+    var self = this;
+    API.post('/user/wallpaper', { wallpaper: url }).then(function(res) {
+      if (res.success) {
+        if (self.user) {
+          self.user.settings = self.user.settings || {};
+          self.user.settings.wallpaper = url;
+        }
+        var desktop = document.querySelector('.desktop-view');
+        if (desktop) desktop.style.backgroundImage = 'url(' + url + ')';
+        showToast('Papel de parede atualizado!', 'success');
+      }
+    });
+  };
+
+  _proto.uploadWallpaper = function(file, modal) {
+    var self = this;
+    var formData = new FormData();
+    formData.append('wallpaper', file);
+    
+    showToast('Enviando imagem...', 'info');
+    fetch('/api/user/wallpaper/upload', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + API.token },
+      body: formData
+    }).then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res.success) {
+          if (self.user) {
+            self.user.settings = self.user.settings || {};
+            self.user.settings.wallpaper = res.wallpaper;
+          }
+          var desktop = document.querySelector('.desktop-view');
+          if (desktop) desktop.style.backgroundImage = 'url(' + res.wallpaper + ')';
+          if (modal) modal.remove();
+          showToast('Papel de parede personalizado ativado!', 'success');
+        } else {
+          showToast(res.error || 'Erro no upload', 'error');
+        }
+      }).catch(function(err) { showToast(err.message, 'error'); });
+  };
 
   return App;
 }();

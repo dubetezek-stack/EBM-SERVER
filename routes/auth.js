@@ -69,9 +69,9 @@ router.post('/setup', async (req, res) => {
     user: { 
       id: admin.id, 
       username: admin.username, 
-      role: admin.role,
       ip: session ? session.ip : (req.ip || '').replace('::ffff:', ''),
-      mac: session ? session.mac : 'N/A'
+      mac: session ? session.mac : 'N/A',
+      settings: admin.settings || {}
     } 
   });
 });
@@ -116,9 +116,9 @@ router.post('/login', async (req, res) => {
     user: { 
       id: user.id, 
       username: user.username, 
-      role: user.role,
       ip: session ? session.ip : (req.ip || '').replace('::ffff:', ''),
-      mac: session ? session.mac : 'N/A'
+      mac: session ? session.mac : 'N/A',
+      settings: user.settings || {}
     } 
   });
 });
@@ -130,7 +130,8 @@ router.get('/me', authenticate, (req, res) => {
     username: req.user.username, 
     role: req.user.role,
     ip: req.user.ip || '',
-    mac: req.user.mac || 'N/A'
+    mac: req.user.mac || 'N/A',
+    settings: req.user.settings || {}
   });
 });
 
