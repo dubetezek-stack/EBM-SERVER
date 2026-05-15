@@ -287,8 +287,19 @@ function renderWallpaperMenu(wallpapers) {
   return html;
 }
 
-function render2FASetup(qrCode, secret) {
+function render2FASetup(qrCode, secret, showPasswordChange) {
+  var passwordHtml = '';
+  if (showPasswordChange) {
+    passwordHtml = '<div style="margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:24px">' +
+                     '<h4 style="margin-bottom:16px;color:var(--accent)">Trocar Senha Padrão</h4>' +
+                     '<div class="form-group" style="text-align:left"><label style="font-size:11px">Senha Atual</label><input type="password" id="confirm-old-pass" class="form-input" placeholder="Senha atual" style="background:rgba(255,255,255,0.05)"></div>' +
+                     '<div class="form-group" style="text-align:left"><label style="font-size:11px">Nova Senha</label><input type="password" id="confirm-new-pass" class="form-input" placeholder="Mínimo 4 caracteres" style="background:rgba(255,255,255,0.05)"></div>' +
+                     '<div class="form-group" style="text-align:left"><label style="font-size:11px">Confirmar Nova Senha</label><input type="password" id="confirm-new-pass2" class="form-input" placeholder="Repita a nova senha" style="background:rgba(255,255,255,0.05)"></div>' +
+                   '</div>';
+  }
+
   return '<div style="text-align:center">' +
+           passwordHtml +
            '<h4 style="margin-bottom:16px">Escaneie este QR Code</h4>' +
            '<div style="background:#fff;padding:10px;border-radius:8px;display:inline-block;margin-bottom:16px"><img src="' + qrCode + '" style="display:block;width:180px;height:180px"></div>' +
            '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Ou digite o código manualmente:</p>' +
@@ -667,6 +678,21 @@ function renderSystemWidget(stats) {
                '<div class="widget-value" id="stat-net-out" style="font-size:9px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
                '<div class="widget-value" id="stat-net-in" style="font-size:9px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
              '</div>' +
+           '</div>' +
+         '</div>';
+}
+
+function renderForcedPasswordChange(user) {
+  return '<div class="auth-page">' +
+           '<div class="auth-card" style="max-width:400px">' +
+             '<div class="logo" style="color:var(--accent);margin-bottom:24px"><div style="font-size:48px;margin-bottom:16px">' + Icons.shield + '</div><h1 style="font-size:20px">Alteração Obrigatória</h1><p style="font-size:12px;color:var(--text-secondary);margin-top:8px">Para sua segurança, você deve alterar sua senha padrão no primeiro acesso.</p></div>' +
+             '<div id="auth-error" class="auth-error"></div>' +
+             '<form id="force-change-form">' +
+               '<div class="form-group"><label>Senha Atual</label><input type="password" id="force-old-pass" class="form-input" required placeholder="Sua senha atual"></div>' +
+               '<div class="form-group"><label>Nova Senha</label><input type="password" id="force-new-pass" class="form-input" required placeholder="Mínimo 4 caracteres"></div>' +
+               '<div class="form-group"><label>Confirmar Nova Senha</label><input type="password" id="force-confirm-pass" class="form-input" required placeholder="Repita a nova senha"></div>' +
+               '<button type="submit" class="btn btn-primary" style="margin-top:20px;height:48px;font-weight:700">Atualizar e Entrar</button>' +
+             '</form>' +
            '</div>' +
          '</div>';
 }

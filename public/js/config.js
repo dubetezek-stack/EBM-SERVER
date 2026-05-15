@@ -8,7 +8,30 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
 
 function renderConfigPanel() {
-  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="security">Segurança</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="apps">Apps Instalados</button>' + '<button class="config-tab" data-tab="cameras">DVR LUXvision</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
+  var role = getUserRole();
+  var isAdmin = role === 'admin';
+  var isMaster = role === 'master' || isAdmin;
+
+  var tabs = '';
+  if (isMaster) {
+    tabs += '<button class="config-tab active" data-tab="drives">Drives</button>';
+  }
+
+  tabs += '<button class="config-tab' + (!isMaster ? ' active' : '') + '" data-tab="security">Segurança</button>';
+  tabs += '<button class="config-tab" data-tab="users">Usuários</button>';
+
+  if (isMaster) {
+    tabs += '<button class="config-tab" data-tab="apps">Apps Instalados</button>';
+  }
+
+  if (isAdmin) {
+    tabs += '<button class="config-tab" data-tab="sessions">Conectados</button>' +
+            '<button class="config-tab" data-tab="server">Servidor</button>' +
+            '<button class="config-tab" data-tab="cameras">DVR LUXvision</button>' +
+            '<button class="config-tab" data-tab="logs">Logs</button>';
+  }
+
+  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + tabs + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
 }
 
 function renderDrivesConfig(drives, users, currentUserIsAdmin) {
@@ -132,7 +155,8 @@ function renderUsersConfig(users) {
     var colIndex = index % 3;
     var badgeClass = u.role === 'admin' ? 'badge-admin' : u.role === 'master' ? 'badge-master' : 'badge-user';
     var badgeLabel = u.role === 'admin' ? 'Admin' : u.role === 'master' ? 'Master' : 'Usuário';
-    var canEdit = isAdmin || (role === 'master' && u.role !== 'admin' && u.id !== window.app.user.id);
+    var isSelf = u.id === window.app.user.id;
+    var canEdit = isAdmin || (role === 'master' && u.role !== 'admin') || isSelf;
 
     var cardHtml = '<div class="config-card user-cfg-card" data-user-id="' + u.id + '">' +
       '<div class="config-card-header">' +
@@ -148,10 +172,10 @@ function renderUsersConfig(users) {
       '<div class="config-card-body">' +
       '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Editar Usuário</div>' +
       '<div class="form-group"><label>Novo Nome (Opcional)</label><input class="form-input cfg-edit-name" value="' + escapeHtml(u.username) + '"></div>' +
-      (role === 'master' ? '<div class="form-group"><label>Senha Atual (Obrigatória)</label><input class="form-input cfg-edit-old-pass" type="password" placeholder="Senha atual deste usuário"></div>' : '') +
+      ((role === 'master' || isSelf) ? '<div class="form-group"><label>Senha Atual (Obrigatória)</label><input class="form-input cfg-edit-old-pass" type="password" placeholder="Sua senha atual para confirmar"></div>' : '') +
       '<div class="form-group"><label>Nova Senha</label><input class="form-input cfg-edit-pass" type="password" placeholder="Deixe em branco para manter"></div>' +
       '<div class="form-group"><label>Tipo de Conta</label>' +
-      '<select class="form-input cfg-edit-role">' +
+      '<select class="form-input cfg-edit-role" ' + (isSelf ? 'disabled title="Você não pode alterar seu próprio nível de acesso"' : '') + '>' +
       '<option value="user" ' + (u.role === 'user' ? 'selected' : '') + '>Usuário (somente leitura)</option>' +
       '<option value="master" ' + (u.role === 'master' ? 'selected' : '') + '>Master (ler + enviar)</option>' +
       (isAdmin ? '<option value="admin" ' + (u.role === 'admin' ? 'selected' : '') + '>Administrador (tudo)</option>' : '') +
@@ -166,11 +190,13 @@ function renderUsersConfig(users) {
     cols[colIndex] += cardHtml;
   });
 
-  var nextCol = users.length % 3;
-  cols[nextCol] += '<div class="config-card add-user-card" id="btn-add-user-card" style="border: 2px dashed var(--border); background: transparent; align-items: center; justify-content: center; opacity: 0.6; min-height: 110px">' +
-    '<div class="config-card-icon" style="background:transparent; color:var(--text-muted)">' + Icons.add + '</div>' +
-    '<div style="font-weight:600; color:var(--text-muted); margin-top:10px">Adicionar Novo Usuário</div>' +
-    '</div>';
+  if (role !== 'user') {
+    var nextCol = users.length % 3;
+    cols[nextCol] += '<div class="config-card add-user-card" id="btn-add-user-card" style="border: 2px dashed var(--border); background: transparent; align-items: center; justify-content: center; opacity: 0.6; min-height: 110px">' +
+      '<div class="config-card-icon" style="background:transparent; color:var(--text-muted)">' + Icons.add + '</div>' +
+      '<div style="font-weight:600; color:var(--text-muted); margin-top:10px">Adicionar Novo Usuário</div>' +
+      '</div>';
+  }
 
   var html = '<div class="config-columns">' +
     '<div class="config-column">' + cols[0] + '</div>' +

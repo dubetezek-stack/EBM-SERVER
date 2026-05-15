@@ -115,7 +115,8 @@ router.post('/setup', async (req, res) => {
     username,
     password: hashedPassword,
     role: 'admin',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    mustChangePassword: false
   };
 
   users.push(admin);
@@ -185,9 +186,17 @@ router.post('/login', checkRateLimit, async (req, res) => {
   // New Security Rule: Force 2FA for Admin and Master
   const userRole = (user.role || '').toLowerCase();
   if (userRole === 'admin' || userRole === 'master') {
-    console.log('[Auth] Setup 2FA OBRIGATORIO para:', user.username, '(' + user.role + ')');
     const setupToken = jwt.sign({ id: user.id, twoFactorSetupPending: true }, config.jwtSecret, { expiresIn: '10m' });
-    return res.json({ twoFactorSetupRequired: true, tempToken: setupToken });
+    return res.json({ 
+      twoFactorSetupRequired: true, 
+      tempToken: setupToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        mustChangePassword: !!user.mustChangePassword
+      }
+    });
   }
 
   const token = jwt.sign({ id: user.id }, config.jwtSecret, { expiresIn: '7d' });
@@ -206,6 +215,7 @@ router.post('/login', checkRateLimit, async (req, res) => {
       username: user.username, 
       role: user.role,
       twoFactorEnabled: !!user.twoFactorEnabled,
+      mustChangePassword: !!user.mustChangePassword,
       ip: session ? session.ip : (req.ip || '').replace('::ffff:', ''),
       mac: session ? session.mac : 'N/A',
       settings: user.settings || {}
@@ -215,11 +225,15 @@ router.post('/login', checkRateLimit, async (req, res) => {
 
 // Current user info
 router.get('/me', authenticate, (req, res) => {
+  const users = readJSON(usersPath) || [];
+  const user = users.find(u => u.id === req.user.id);
+  
   res.json({ 
     id: req.user.id, 
     username: req.user.username, 
     role: req.user.role,
     twoFactorEnabled: !!req.user.twoFactorEnabled,
+    mustChangePassword: user ? !!user.mustChangePassword : false,
     ip: req.user.ip || '',
     mac: req.user.mac || 'N/A',
     settings: req.user.settings || {}
@@ -243,9 +257,9 @@ router.get('/2fa/setup', authenticateSetup, async (req, res) => {
   });
 });
 
-// Enable 2FA
+// Enable 2FA (and optionally change password if required)
 router.post('/2fa/enable', authenticateSetup, async (req, res) => {
-  const { secret, code } = req.body;
+  const { secret, code, oldPassword, newPassword } = req.body;
   
   const verified = speakeasy.totp.verify({
     secret: secret,
@@ -266,6 +280,16 @@ router.post('/2fa/enable', authenticateSetup, async (req, res) => {
   const userIdx = users.findIndex(u => u.id === req.user.id);
   if (userIdx === -1) return res.status(404).json({ error: 'Usuário não encontrado' });
   
+  // Update password if provided (for forced change during 2FA setup)
+  if (newPassword && oldPassword) {
+    const isMatch = await bcrypt.compare(oldPassword, users[userIdx].password);
+    if (!isMatch) return res.status(403).json({ error: 'Senha atual incorreta' });
+    if (newPassword.length < 4) return res.status(400).json({ error: 'A nova senha deve ter no mínimo 4 caracteres' });
+    
+    users[userIdx].password = await bcrypt.hash(newPassword, 10);
+    users[userIdx].mustChangePassword = false;
+  }
+
   users[userIdx].twoFactorSecret = secret;
   users[userIdx].twoFactorEnabled = true;
   users[userIdx].recoveryCodes = recoveryCodes;
@@ -418,8 +442,10 @@ router.post('/reset-password', checkRateLimit, async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     
-    // Consume the recovery code
-    user.recoveryCodes.splice(recoveryIdx, 1);
+    // Reset 2FA entirely after recovery reset
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    user.recoveryCodes = [];
     
     writeJSON(usersPath, users);
     recordLoginAttempt(req.ip, true);
@@ -429,43 +455,6 @@ router.post('/reset-password', checkRateLimit, async (req, res) => {
   } catch (err) {
     console.error('Erro no reset de senha:', err);
     res.status(500).json({ error: 'Erro interno no servidor ao resetar senha' });
-  }
-});
-
-// Reset password using recovery code
-router.post('/2fa/reset-password', async (req, res) => {
-  try {
-    const { username, recoveryCode, newPassword } = req.body;
-    if (!username || !recoveryCode || !newPassword) {
-      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
-    }
-
-    const config = await readConfig();
-    const user = config.users.find(u => u.username === username);
-
-    if (!user || !user.twoFactorEnabled || !user.recoveryCodes) {
-      return res.status(400).json({ error: 'Usuário não encontrado ou 2FA não ativo' });
-    }
-
-    // Verify recovery code
-    const codeIndex = user.recoveryCodes.indexOf(recoveryCode.toUpperCase());
-    if (codeIndex === -1) {
-      return res.status(401).json({ error: 'Código de recuperação inválido' });
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-
-    // Remove the used recovery code
-    user.recoveryCodes.splice(codeIndex, 1);
-
-    await writeConfig(config);
-
-    res.json({ success: true, message: 'Senha redefinida com sucesso' });
-  } catch (error) {
-    console.error('Error resetting password:', error);
-    res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

@@ -269,12 +269,21 @@ router.get('/browse/path', requireMaster, (req, res) => {
 
 // === USERS ===
 
-router.get('/users', requireMaster, (req, res) => {
+router.get('/users', (req, res) => {
   const users = readJSON(usersPath) || [];
+  const currentUser = req.user;
+
+  // Common users only see themselves
+  if (currentUser.role === 'user') {
+    const self = users.find(u => u.id === currentUser.id);
+    return res.json(self ? [{
+      id: self.id, username: self.username, role: self.role, createdAt: self.createdAt
+    }] : []);
+  }
 
   // Master users cannot see Admin users
   let filteredUsers = users;
-  if (req.user.role === 'master') {
+  if (currentUser.role === 'master') {
     filteredUsers = users.filter(u => u.role !== 'admin');
   }
 
@@ -305,7 +314,8 @@ router.post('/users', requireMaster, async (req, res) => {
     username,
     password: hashed,
     role: role || 'user',
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    mustChangePassword: true
   };
 
   users.push(user);
@@ -313,8 +323,8 @@ router.post('/users', requireMaster, async (req, res) => {
   res.json({ id: user.id, username: user.username, role: user.role });
 });
 
-router.put('/users/:id', requireMaster, async (req, res) => {
-  const { username, password, role } = req.body;
+router.put('/users/:id', async (req, res) => {
+  const { username, password, role, oldPassword } = req.body;
   const users = readJSON(usersPath) || [];
   const idx = users.findIndex(u => u.id === req.params.id);
 
@@ -323,10 +333,17 @@ router.put('/users/:id', requireMaster, async (req, res) => {
   }
 
   const targetUser = users[idx];
+  const isSelf = req.user.id === targetUser.id;
+
+  // Basic permission check
+  if (req.user.role === 'user' && !isSelf) {
+    return res.status(403).json({ error: 'Acesso negado: Você só pode gerenciar seu próprio perfil' });
+  }
+
   if (global.addLog) global.addLog('DEBUG', `Update user: ${req.user.username}(${req.user.role}) -> ${targetUser.username}(${targetUser.role}) to role: ${role}`, req.ip);
 
   if (req.user.role === 'master') {
-    // Master can edit anyone EXCEPT Admins and themselves (the self-edit check is usually in the UI or handled by ID)
+    // Master can edit anyone EXCEPT Admins
     if (targetUser.role === 'admin') {
       return res.status(403).json({ error: 'Você não pode modificar administradores' });
     }
@@ -336,6 +353,11 @@ router.put('/users/:id', requireMaster, async (req, res) => {
     }
   }
 
+  // NEW RULE: User cannot change their own role/permissions
+  if (isSelf && role && role !== targetUser.role) {
+    return res.status(403).json({ error: 'Ação não permitida: Você não pode alterar sua própria permissão de conta' });
+  }
+
   if (username) {
     if (users.find(u => u.username === username && u.id !== req.params.id)) {
       return res.status(400).json({ error: 'Nome já em uso' });
@@ -343,20 +365,27 @@ router.put('/users/:id', requireMaster, async (req, res) => {
     users[idx].username = username;
   }
   if (password) {
-    // SECURITY: Master can only change password if they know the old one
-    if (req.user.role === 'master') {
-      const { oldPassword } = req.body;
+    // SECURITY: Require current password for self-edit OR if requester is Master
+    if (isSelf || req.user.role === 'master') {
       if (!oldPassword) {
-        return res.status(400).json({ error: 'A senha atual do usuário é obrigatória para realizar a alteração' });
+        return res.status(400).json({ error: 'A senha atual é obrigatória para realizar a alteração' });
       }
       const isMatch = await bcrypt.compare(oldPassword, targetUser.password);
       if (!isMatch) {
-        return res.status(403).json({ error: 'Senha atual do usuário incorreta' });
+        return res.status(403).json({ error: 'Senha atual incorreta' });
       }
     }
     users[idx].password = await bcrypt.hash(password, 10);
+    // Clear force-change flag when password is updated
+    users[idx].mustChangePassword = isSelf ? false : true;
+    // Reset 2FA if password is changed
+    users[idx].twoFactorEnabled = false;
+    users[idx].twoFactorSecret = null;
+    users[idx].recoveryCodes = [];
   }
-  if (role) {
+  
+  // Only update role if it's NOT a self-edit
+  if (role && !isSelf) {
     users[idx].role = role;
   }
 

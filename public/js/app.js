@@ -83,12 +83,25 @@ var App = /*#__PURE__*/function () {
     } else if (view === 'cameras') {
       windowContent = renderCamerasView();
     } else if (view === 'admin') {
-      var role = this.user ? this.user.role : '';
+      var role = (getUserRole() || '').toLowerCase();
       var isAdmin = role === 'admin';
-      var tabsHtml = '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>' +
-        '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>' +
-        '<button class="config-tab" data-tab="security" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Segurança</button>' +
-        '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
+      var isMaster = role === 'master';
+      var isPrivileged = isAdmin || isMaster;
+      
+      var tabsHtml = '';
+      
+      if (isPrivileged) {
+        tabsHtml += '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>';
+      }
+      
+      // We always want Users and Security to be visible
+      tabsHtml += '<button class="config-tab' + (!isPrivileged ? ' active' : '') + '" data-tab="security" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Segurança</button>';
+      tabsHtml += '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>';
+      
+      if (isPrivileged) {
+        tabsHtml += '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
+      }
+
       if (isAdmin) {
         tabsHtml += '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Conectados</button>' +
           '<button class="config-tab" data-tab="server" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Servidor</button>' +
@@ -101,7 +114,7 @@ var App = /*#__PURE__*/function () {
         '<div style="color:var(--accent);font-size:24px">' + Icons.settings + '</div>' +
         '<div>' +
         '<div style="font-size:18px;font-weight:700">Configurações do Sistema</div>' +
-        '<div style="font-size:12px;color:var(--text-secondary)">Gerencie drives, usuários e segurança</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary)">' + (isPrivileged ? 'Gerencie drives, usuários e segurança' : 'Gerencie sua segurança e 2FA') + '</div>' +
         '</div>' +
         '</div>' +
         '</div>' +
@@ -164,8 +177,13 @@ var App = /*#__PURE__*/function () {
       this.bindCameras();
       this.bindDock('files');
     } else if (view === 'admin') {
+      var role = (getUserRole() || '').toLowerCase();
+      var isAdmin = role === 'admin';
+      var isMaster = role === 'master';
+      var isPrivileged = isAdmin || isMaster;
       this.bindConfig();
-      this.loadConfigTab('drives');
+      // Default to drives for admins/masters, but always security for common users
+      this.loadConfigTab(isPrivileged ? 'drives' : 'security');
       this.bindDock('settings');
     } else if (view === 'appstore') {
       this.bindAppStore();
@@ -220,6 +238,7 @@ var App = /*#__PURE__*/function () {
 
         if (res.twoFactorSetupRequired) {
           console.log('[Auth] Redirecionando para Setup 2FA Obrigatório');
+          if (res.user) self.user = res.user;
           self.force2FASetup(res.tempToken);
           return;
         }
@@ -360,13 +379,22 @@ var App = /*#__PURE__*/function () {
     var self = this;
     var appEl = document.getElementById('app');
 
+    // SECURITY: Force password change if required
+    console.log('[Security] Checking force password change:', this.user ? this.user.mustChangePassword : 'no user');
+    if (this.user && (this.user.mustChangePassword === true || this.user.mustChangePassword === 'true')) {
+      console.log('[Security] Force password change TRIGGERED');
+      this.showForcedPasswordChange();
+      return;
+    }
+
     API.get('/apps/installed').then(function (apps) {
       self.apps = apps || [];
-      var role = self.user ? self.user.role : '';
-      var isMasterPlus = role === 'master' || role === 'admin';
+      var role = (self.user ? self.user.role : '').toLowerCase();
+      var isAdmin = role === 'admin';
 
-      // Add settings icon for master/admin if not in list
-      if (isMasterPlus && !self.apps.find(function (a) { return a.id === 'settings'; })) {
+      // Only force Settings icon for Admins if it's not in the list.
+      // Other users (Master/User) will only see it if it's returned by the backend based on their permissions.
+      if (isAdmin && !self.apps.find(function (a) { return a.id === 'settings'; })) {
         self.apps.push({ id: 'settings', name: 'Configurações', icon: 'settings', description: 'Configurações do sistema' });
       }
 
@@ -425,6 +453,65 @@ var App = /*#__PURE__*/function () {
         });
       }
     });
+  };
+
+  _proto.showForcedPasswordChange = function showForcedPasswordChange() {
+    var appEl = document.getElementById('app');
+    appEl.innerHTML = renderForcedPasswordChange(this.user);
+    this.bindForcedPasswordChange();
+  };
+
+  _proto.bindForcedPasswordChange = function bindForcedPasswordChange() {
+    var self = this;
+    var form = document.getElementById('force-change-form');
+    if (!form) return;
+
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var oldPass = document.getElementById('force-old-pass').value;
+      var newPass = document.getElementById('force-new-pass').value;
+      var confirmPass = document.getElementById('force-confirm-pass').value;
+      var errEl = document.getElementById('auth-error');
+
+      if (newPass.length < 4) {
+        errEl.textContent = 'A nova senha deve ter no mínimo 4 caracteres';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      if (newPass !== confirmPass) {
+        errEl.textContent = 'As novas senhas não conferem';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      if (newPass === oldPass) {
+        errEl.textContent = 'A nova senha deve ser diferente da atual';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      var btn = form.querySelector('button');
+      btn.disabled = true;
+      btn.textContent = 'Atualizando...';
+
+      // Use the admin update API to change password
+      API.put('/admin/users/' + self.user.id, {
+        password: newPass,
+        oldPassword: oldPass
+      }).then(function (res) {
+        showToast('Senha atualizada com sucesso!', 'success');
+        // Update local user state
+        self.user.mustChangePassword = false;
+        // Refresh UI
+        self.showDesktop();
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Atualizar e Entrar';
+        errEl.textContent = err.message;
+        errEl.classList.add('visible');
+      });
+    };
   };
 
   _proto.bindDock = function bindDock(active) {
@@ -1924,7 +2011,9 @@ var App = /*#__PURE__*/function () {
     API.get('/auth/2fa/setup').then(function(res) {
        var area = document.getElementById('setup-area-forced');
        if (!area) return;
-       area.innerHTML = render2FASetup(res.qrCode, res.secret);
+        var showPass = self.user && (self.user.mustChangePassword === true || self.user.mustChangePassword === 'true');
+        area.innerHTML = render2FASetup(res.qrCode, res.secret, showPass);
+
        
        var confirmBtn = area.querySelector('#btn-confirm-2fa');
        var input = area.querySelector('#confirm-2fa-code');
@@ -1934,10 +2023,31 @@ var App = /*#__PURE__*/function () {
            var code = input.value.trim();
            if (code.length !== 6) return showToast('Digite o código de 6 dígitos', 'error');
 
-           confirmBtn.disabled = true;
-           confirmBtn.textContent = 'Verificando...';
+            var payload = { secret: res.secret, code: code };
+            
+            // If password change is shown, collect those fields
+            var oldPassInput = area.querySelector('#confirm-old-pass');
+            var newPassInput = area.querySelector('#confirm-new-pass');
+            var newPassInput2 = area.querySelector('#confirm-new-pass2');
+            if (oldPassInput && newPassInput) {
+              var oldP = oldPassInput.value;
+              var newP = newPassInput.value;
+              var newP2 = newPassInput2 ? newPassInput2.value : newP;
+              
+              if (oldP || newP || (newPassInput2 && newP2)) { 
+                if (!oldP || !newP || !newP2) return showToast('Preencha todos os campos de senha', 'error');
+                if (newP !== newP2) return showToast('As novas senhas não conferem', 'error');
+                if (newP.length < 4) return showToast('A nova senha deve ter 4+ caracteres', 'error');
+                payload.oldPassword = oldP;
+                payload.newPassword = newP;
+              }
+            }
 
-           API.post('/auth/2fa/enable', { secret: res.secret, code: code }).then(function(res2) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Verificando...';
+
+            API.post('/auth/2fa/enable', payload).then(function(res2) {
+
               showToast('2FA Ativado com sucesso!', 'success');
               if (res2.token) API.setToken(res2.token);
               if (res2.user) self.user = res2.user;
@@ -1976,7 +2086,8 @@ var App = /*#__PURE__*/function () {
         API.get('/auth/2fa/setup').then(function(res) {
            var area = container.querySelector('#status-2fa-area');
            if (!area) return;
-           area.innerHTML = render2FASetup(res.qrCode, res.secret);
+           var showPass = self.user && (self.user.mustChangePassword === true || self.user.mustChangePassword === 'true');
+        area.innerHTML = render2FASetup(res.qrCode, res.secret, showPass);
            
            var confirmBtn = area.querySelector('#btn-confirm-2fa');
            var input = area.querySelector('#confirm-2fa-code');
@@ -1987,7 +2098,27 @@ var App = /*#__PURE__*/function () {
              confirmBtn.disabled = true;
              confirmBtn.textContent = 'Verificando...';
 
-             API.post('/auth/2fa/enable', { secret: res.secret, code: code }).then(function(res2) {
+             var payload = { secret: res.secret, code: code };
+            
+            // If password change is shown, collect those fields
+            var oldPassInput = area.querySelector('#confirm-old-pass');
+            var newPassInput = area.querySelector('#confirm-new-pass');
+            var newPassInput2 = area.querySelector('#confirm-new-pass2');
+            if (oldPassInput && newPassInput) {
+              var oldP = oldPassInput.value;
+              var newP = newPassInput.value;
+              var newP2 = newPassInput2 ? newPassInput2.value : newP;
+              
+              if (oldP || newP || (newPassInput2 && newP2)) { 
+                if (!oldP || !newP || !newP2) return showToast('Preencha todos os campos de senha', 'error');
+                if (newP !== newP2) return showToast('As novas senhas não conferem', 'error');
+                if (newP.length < 4) return showToast('A nova senha deve ter 4+ caracteres', 'error');
+                payload.oldPassword = oldP;
+                payload.newPassword = newP;
+              }
+            }
+
+            API.post('/auth/2fa/enable', payload).then(function(res2) {
                 showToast('2FA Ativado!', 'success');
                 // Refresh user state
                 API.get('/auth/me').then(function(u) {
