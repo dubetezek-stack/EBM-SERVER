@@ -214,6 +214,9 @@ router.get('/preview', (req, res) => {
   if (mimeType.startsWith('text/') || ['.json', '.xml', '.csv', '.log', '.ini', '.cfg', '.bat', '.ps1', '.sh', '.py', '.js', '.html', '.css', '.md'].includes(ext)) {
     try {
       const content = fs.readFileSync(resolved.fullPath, 'utf8');
+      // SECURITY: Add CSP to prevent XSS if this was ever rendered directly
+      res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline';");
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       return res.json({ type: 'text', content, fileName, mimeType });
     } catch (e) {
       return res.status(500).json({ error: 'Erro ao ler arquivo' });
@@ -222,6 +225,9 @@ router.get('/preview', (req, res) => {
 
   // For binary files (images, videos, PDFs), stream the file
   res.setHeader('Content-Type', mimeType);
+  // SECURITY: Prevent XSS in SVG or other sniffable types
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Security-Policy', "default-src 'none';");
   res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
 
   const stat = fs.statSync(resolved.fullPath);

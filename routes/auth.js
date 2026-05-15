@@ -41,6 +41,11 @@ function authenticateSetup(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query?.token || req.cookies?.ebm_auth_token;
   if (!token) return res.status(401).json({ error: 'Token ausente' });
 
+  // CSRF Protection: For write operations, don't trust tokens from cookies alone
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && !req.headers.authorization) {
+     return res.status(403).json({ error: 'Acesso negado: Segurança CSRF' });
+  }
+
   const { getConfig, getUsers } = require('../middleware/auth');
   const config = getConfig();
   
