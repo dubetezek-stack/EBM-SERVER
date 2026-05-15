@@ -357,6 +357,8 @@ function renderGenericAppView(app) {
   
   if (app.port) {
     url = '/api/apps/proxy/' + app.id + '/?token=' + (API.token || '') + '&cb=' + Date.now();
+  } else if (app.url) {
+    url = app.url;
   } else {
     var cb = Date.now();
     if (app.id === 'plex') url = 'http://' + hostname + ':32400/web?cb=' + cb;
@@ -368,12 +370,15 @@ function renderGenericAppView(app) {
   var iconHtml = Icons[app.icon] || Icons.file;
   if (typeof iconHtml === 'function') iconHtml = iconHtml('#fff');
 
+  var isExternal = !!app.url;
+
   return '<div class="app-page-view" style="height:100%; display:flex; flex-direction:column; background:#111">' +
-           '<div class="app-page-header" style="background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; flex-shrink:0; height:40px">' +
+           '<div class="app-page-header" style="background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; height:40px">' +
              '<div style="display:flex; align-items:center; gap:10px">' +
                '<div style="color:var(--accent); font-size:16px; display:flex">' + iconHtml + '</div>' +
                '<div style="font-size:13px; font-weight:600; color:#fff">' + escapeHtml(app.name) + '</div>' +
              '</div>' +
+             (isExternal ? '<a href="' + url + '" target="_blank" style="font-size:11px; color:var(--accent); text-decoration:none; display:flex; align-items:center; gap:4px">' + Icons.forward + ' Abrir em nova aba</a>' : '') +
            '</div>' +
            '<div class="app-page-content" style="flex:1; position:relative; overflow:hidden; background:#000">' +
              '<iframe src="' + url + '" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; background:#000" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +

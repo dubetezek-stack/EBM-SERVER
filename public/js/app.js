@@ -129,6 +129,10 @@ var App = /*#__PURE__*/function () {
     } else {
       var appInfo = (this.apps || []).find(function (a) { return a.id === view; });
       if (appInfo) {
+        if (appInfo.newTabOnly && appInfo.url) {
+          window.open(appInfo.url, '_blank');
+          return;
+        }
         windowContent = renderGenericAppView(appInfo);
       }
     }

@@ -19,6 +19,16 @@ const DEFAULT_APPS = [
   { id: 'transmission', name: 'Transmission', icon: 'download', description: 'Cliente BitTorrent leve e rápido', category: 'Utilidades', official: false },
   { id: 'homeassistant', name: 'Home Assistant', icon: 'home', description: 'Automação residencial de código aberto', category: 'Smart Home', official: false },
   { 
+    id: 'icloud', 
+    name: 'iCloud', 
+    icon: 'icloud', 
+    description: 'Acesse suas fotos, arquivos e notas da Apple', 
+    category: 'Nuvem', 
+    official: false,
+    url: 'https://www.icloud.com',
+    newTabOnly: true
+  },
+  { 
     id: 'jellyfin', 
     name: 'Jellyfin', 
     icon: 'jellyfin', 
