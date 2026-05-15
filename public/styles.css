@@ -2167,6 +2167,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 .app-window .admin-page-view {
   height: 100%;
   background: transparent !important;
+  padding-bottom: 90px;
 }
 
 /* Adjust dock when window is open */

@@ -20,7 +20,7 @@ function getUsers() {
 }
 
 function authenticate(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query?.token;
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query?.token || req.cookies?.auth_token;
   if (!token) {
     return res.status(401).json({ error: 'Token não fornecido' });
   }

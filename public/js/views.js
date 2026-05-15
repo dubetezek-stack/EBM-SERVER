@@ -322,16 +322,21 @@ function renderAppStore(availableApps, installedIds) {
     var icon = Icons[app.icon] || Icons.file;
     var isCore = ['explorer', 'settings', 'cameras', 'speedtest'].indexOf(app.id) !== -1;
     
+    var actionBtn = '';
+    if (isInstalled) {
+      actionBtn = isCore ? '<button class="btn-install installed" disabled>Sistema</button>' : '<button class="btn-uninstall-store" data-app-id="' + app.id + '">Desinstalar</button>';
+    } else if (app.isLocal && app.hasInstaller) {
+      actionBtn = '<button class="btn-install-local" data-app-id="' + app.id + '" style="background:var(--accent-blue)">Instalar Local</button>';
+    } else {
+      actionBtn = '<button class="btn-install" data-app-id="' + app.id + '">Instalar</button>';
+    }
+
     appsHtml += '<div class="app-card">' +
                   '<div class="app-card-icon">' + icon + '</div>' +
                   '<div class="app-card-info">' +
                     '<div class="app-card-name">' + escapeHtml(app.name) + '</div>' +
                     '<div class="app-card-desc">' + escapeHtml(app.description) + '</div>' +
-                    '<div class="app-card-actions">' +
-                      (isInstalled ? 
-                        (isCore ? '<button class="btn-install installed" disabled>Sistema</button>' : '<button class="btn-uninstall-store" data-app-id="' + app.id + '">Desinstalar</button>') : 
-                        '<button class="btn-install" data-app-id="' + app.id + '">Instalar</button>') +
-                    '</div>' +
+                    '<div class="app-card-actions">' + actionBtn + '</div>' +
                   '</div>' +
                 '</div>';
   });
@@ -349,10 +354,15 @@ function renderAppStore(availableApps, installedIds) {
 function renderGenericAppView(app) {
   var url = '/' + app.id + '/';
   var hostname = window.location.hostname;
-  if (app.id === 'plex') url = 'http://' + hostname + ':32400/web';
-  if (app.id === 'transmission') url = 'http://' + hostname + ':9091';
-  if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123';
-  if (app.id === 'portainer') url = 'http://' + hostname + ':9000';
+  
+  if (app.port) {
+    url = '/api/apps/proxy/' + app.id + '/?token=' + (API.token || '');
+  } else {
+    if (app.id === 'plex') url = 'http://' + hostname + ':32400/web';
+    if (app.id === 'transmission') url = 'http://' + hostname + ':9091';
+    if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123';
+    if (app.id === 'portainer') url = 'http://' + hostname + ':9000';
+  }
 
   var iconHtml = Icons[app.icon] || Icons.file;
   if (typeof iconHtml === 'function') iconHtml = iconHtml('#fff');

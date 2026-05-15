@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const os = require('os');
+const cookieParser = require('cookie-parser');
 const { initDDNS } = require('./ddns');
 const { router: cameraRouter, initCameraWS } = require('./routes/cameras');
 const { readJSON, writeJSON, DATA_DIR } = require('./utils/storage');
@@ -61,6 +62,7 @@ app.options('/speedtest/upload', (req, res) => {
 });
 
 app.use(express.json());
+app.use(cookieParser());
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/admin/logs')) {
     addLog('INFO', req.method + ' ' + req.path, req.ip.replace('::ffff:', ''));
@@ -111,5 +113,83 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
   initDDNS();
   initCameraWS(server);
+
+  // Auto-start installed apps
+  const { readJSON } = require('./utils/storage');
+  const appsManager = require('./utils/apps-manager');
+  const appsConfigPath = path.join(DATA_DIR, 'apps.json');
+  
+  const startApps = () => {
+    const config = readJSON(appsConfigPath);
+    if (config && config.installed) {
+      config.installed.forEach(appId => {
+        const appDef = config.available.find(a => a.id === appId);
+        if (appDef && appDef.isLocal && appDef.execPath) {
+          try {
+            const appDir = appsManager.getAppDir(appId);
+            if (fs.existsSync(appDir)) {
+              appsManager.spawnApp(appId, appDef.execPath);
+            }
+          } catch (e) {
+            console.error(`Falha ao auto-iniciar ${appId}:`, e.message);
+          }
+        }
+      });
+    }
+  };
+  
+  // Start apps after a short delay to ensure system is ready
+  setTimeout(startApps, 2000);
+});
+
+// Reverse Proxy for Apps
+const http = require('http');
+const { authenticate } = require('./middleware/auth');
+
+app.all('/api/apps/proxy/:appId/*', authenticate, (req, res) => {
+  const appId = req.params.appId;
+  
+  // Set cookie if token is in query for future requests from this iframe
+  if (req.query.token) {
+    res.cookie('auth_token', req.query.token, { 
+      path: `/api/apps/proxy/${appId}`, 
+      httpOnly: true,
+      maxAge: 86400000 // 24h
+    });
+  }
+  const { readJSON } = require('./utils/storage');
+  const config = readJSON(path.join(DATA_DIR, 'apps.json'));
+  const appDef = config ? config.available.find(a => a.id === appId) : null;
+  
+  if (!appDef || !appDef.port) return res.status(404).send('App não configurado para proxy');
+
+  const targetPath = '/' + req.params[0] + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+  
+  const options = {
+    hostname: '127.0.0.1',
+    port: appDef.port,
+    path: targetPath,
+    method: req.method,
+    headers: { ...req.headers }
+  };
+  
+  // Clean up headers
+  delete options.headers.host;
+  delete options.headers.connection;
+  
+  const proxyReq = http.request(options, (proxyRes) => {
+    // Rewrite redirects
+    if (proxyRes.headers.location && proxyRes.headers.location.startsWith('/')) {
+      proxyRes.headers.location = `/api/apps/proxy/${appId}${proxyRes.headers.location}`;
+    }
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  
+  proxyReq.on('error', (err) => {
+    res.status(502).send('Erro no proxy: ' + err.message);
+  });
+  
+  req.pipe(proxyReq);
 });
 

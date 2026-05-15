@@ -302,6 +302,7 @@ var App = /*#__PURE__*/function () {
       else if (appId === 'settings') self.navigate('admin');
       else if (appId === 'plex') window.open('http://' + window.location.hostname + ':32400', '_blank');
       else if (appId === 'homeassistant') window.open('http://' + window.location.hostname + ':8123', '_blank');
+      else self.navigate(appId);
     });
 
     document.addEventListener('input', function(e) {
@@ -1877,6 +1878,36 @@ var App = /*#__PURE__*/function () {
             }).catch(function(err) {
               btnEl.disabled = false;
               btnEl.textContent = 'Instalar';
+              showToast(err.message, 'error');
+            });
+          };
+        });
+
+        // Bind install local buttons
+        body.querySelectorAll('.btn-install-local').forEach(function(btn) {
+          btn.onclick = function() {
+            var appId = this.getAttribute('data-app-id');
+            var btnEl = this;
+            btnEl.disabled = true;
+            btnEl.textContent = 'Extraindo...';
+            
+            showToast('Instalando aplicativo localmente (extraindo arquivos)...', 'info');
+            
+            API.post('/apps/install-local/' + appId).then(function(res) {
+              if (res.success) {
+                showToast('Aplicativo instalado com sucesso!', 'success');
+                // Auto start after install
+                API.post('/apps/start/' + appId).then(function() {
+                  self.bindAppStore(); // Refresh
+                });
+              } else {
+                btnEl.disabled = false;
+                btnEl.textContent = 'Instalar Local';
+                showToast(res.error || 'Falha na instalação local', 'error');
+              }
+            }).catch(function(err) {
+              btnEl.disabled = false;
+              btnEl.textContent = 'Instalar Local';
               showToast(err.message, 'error');
             });
           };
