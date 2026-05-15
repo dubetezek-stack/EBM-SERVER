@@ -1324,66 +1324,89 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 .dock {
-  background: #1c1c1e;
-  border: 1px solid #2c2c2e;
-  border-radius: 24px;
-  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+  gap: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
-.dock-content {
+.dock-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .dock-item {
-  width: 44px;
-  height: 44px;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.dock-item:hover {
+  transform: translateY(-4px);
+}
+
+.dock-icon-bg {
+  width: 100%;
+  height: 100%;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  position: relative;
-}
-
-.dock-item:hover {
-  background: #2c2c2e;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
 }
 
 .dock-item svg {
-  width: 24px;
-  height: 24px;
-  color: #8e8e93;
-}
-
-.dock-item.active svg {
+  width: 28px;
+  height: 28px;
   color: white;
 }
 
-.dock-item.active::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background: white;
-  border-radius: 50%;
+/* Umbrel Dock Colors */
+.dock-item.home .dock-icon-bg { background: linear-gradient(135deg, #7b61ff, #5a45d1); }
+.dock-item.explorer .dock-icon-bg { background: linear-gradient(135deg, #00c6ff, #0072ff); }
+.dock-item.appstore .dock-icon-bg { background: linear-gradient(135deg, #ff9966, #ff5e62); }
+.dock-item.settings .dock-icon-bg { background: linear-gradient(135deg, #a1a1a1, #757575); }
+.dock-item.logout .dock-icon-bg { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+
+.dock-item:hover .dock-icon-bg {
+  filter: brightness(1.1);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
 }
 
-.dock-divider {
-  width: 1px;
-  height: 30px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: auto 4px;
+.dock-dot {
+  position: absolute;
+  bottom: -6px;
+  width: 10px;
+  height: 2px;
+  background: white;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+.dock-user-info {
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffca28;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  text-align: center;
+  width: 100%;
 }
 
 /* APP STORE VIEW */
@@ -1502,17 +1525,18 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 .system-widget {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(28, 28, 30, 0.7);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 32px;
   padding: 20px;
-  min-width: 400px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  min-width: 420px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
 }
 
 .widget-pill {
@@ -1520,23 +1544,23 @@ input:checked + .slider:before { transform: translateX(20px); }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 16px 10px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 24px 10px;
   border-radius: 100px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: all 0.3s ease;
 }
 
 .widget-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
 }
 
 .widget-icon {
   width: 24px;
   height: 24px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1545,14 +1569,14 @@ input:checked + .slider:before { transform: translateX(20px); }
 .widget-label {
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .widget-value {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
   color: #fff;
 }
 

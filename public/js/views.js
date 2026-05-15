@@ -290,38 +290,29 @@ function renderWallpaperMenu(wallpapers) {
 
 function renderDock() {
   var user = (window.app && window.app.user) ? window.app.user : null;
-  var role = user ? user.role : 'common';
-  var ip = user ? (user.ip || '---') : '---';
-  var mac = user ? (user.mac || '---') : '---';
+  var role = user ? user.role : 'guest';
+  var isAdmin = role === 'admin';
+  var isMaster = role === 'master' || isAdmin;
+  var userName = user ? user.username : 'admin';
+  var roleLabel = (role === 'admin' ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'USER'));
   
-  var roleLabel = 'COMUM';
-  if (role === 'admin') roleLabel = 'ADMIN';
-  else if (role === 'master') roleLabel = 'MASTER';
-
-  if (user) {
-    roleLabel += ' — ' + ip + ' | ' + mac;
-  }
-
   var hasExplorer = true;
-  var hasSettings = (role === 'admin' || role === 'master');
   if (window.app && window.app.apps) {
     hasExplorer = !!window.app.apps.find(function(a){return a.id === 'explorer';});
-    hasSettings = !!window.app.apps.find(function(a){return a.id === 'settings';});
   }
 
-  return '<div class="dock-container">' +
-           '<div class="dock">' +
-             '<div class="dock-content">' +
-               '<div class="dock-item" data-view="home" id="dock-home" title="Início">' + Icons.home + '</div>' +
-               (hasExplorer ? '<div class="dock-item" data-view="files" id="dock-explorer" title="Arquivos">' + Icons.folder + '</div>' : '') +
-               '<div class="dock-item" data-view="store" id="dock-appstore" title="App Store">' + Icons.appstore + '</div>' +
-               '<div class="dock-divider"></div>' +
-               (hasSettings ? '<div class="dock-item" data-view="settings" id="dock-settings" title="Configurações">' + Icons.settings + '</div>' : '') +
-               '<div class="dock-item" data-view="logout" id="dock-logout" title="Sair">' + Icons.logout + '</div>' +
-             '</div>' +
-             '<div class="dock-user-type ' + role + '">' + roleLabel + '</div>' +
-           '</div>' +
-         '</div>';
+  return '<div class="dock-container">' + 
+    '<div class="dock">' + 
+      '<div class="dock-row">' + 
+        '<div class="dock-item active home" data-view="home" id="dock-home" title="Início"><div class="dock-icon-bg">' + Icons.home + '</div><div class="dock-dot"></div></div>' + 
+        (isMaster && hasExplorer ? '<div class="dock-item explorer" data-view="files" id="dock-explorer" title="Arquivos"><div class="dock-icon-bg">' + Icons.explorer + '</div></div>' : '') + 
+        '<div class="dock-item appstore" data-view="store" id="dock-appstore" title="App Store"><div class="dock-icon-bg">' + Icons.appstore + '</div></div>' + 
+        '<div class="dock-item settings" data-view="settings" id="dock-settings" title="Configurações"><div class="dock-icon-bg">' + Icons.settings + '</div></div>' + 
+        '<div class="dock-item logout" data-view="logout" id="dock-logout" title="Sair"><div class="dock-icon-bg">' + Icons.logout + '</div></div>' + 
+      '</div>' + 
+      '<div class="dock-user-info">' + roleLabel + ' — ' + window.location.hostname + ' | N/A</div>' + 
+    '</div>' + 
+  '</div>';
 }
 
 function renderAppStore(availableApps, installedIds) {
@@ -605,19 +596,19 @@ function renderSystemWidget(stats) {
            '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.cpu + '</div>' +
              '<div class="widget-label">CPU</div>' +
-             '<div class="widget-value">' + stats.cpu + '%</div>' +
+             '<div class="widget-value" id="stat-cpu">' + stats.cpu + '%</div>' +
            '</div>' +
            '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.ram + '</div>' +
              '<div class="widget-label">Memória</div>' +
-             '<div class="widget-value">' + memUsed + ' GB</div>' +
+             '<div class="widget-value" id="stat-mem">' + memUsed + ' GB</div>' +
            '</div>' +
            '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.speed + '</div>' +
              '<div class="widget-label">Rede</div>' +
              '<div style="display:flex; flex-direction:column; align-items:center; gap:2px">' +
-               '<div class="widget-value" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
-               '<div class="widget-value" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
+               '<div class="widget-value" id="stat-net-out" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
+               '<div class="widget-value" id="stat-net-in" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
              '</div>' +
            '</div>' +
          '</div>';

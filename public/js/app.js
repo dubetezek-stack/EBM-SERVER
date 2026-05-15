@@ -1748,32 +1748,44 @@ var App = /*#__PURE__*/function () {
 
   _proto.showWallpaperMenu = function() {
     var self = this;
+    if (this._wallpaperLoading || document.getElementById('wallpaper-overlay')) return;
+    
+    this._wallpaperLoading = true;
     API.get('/user/wallpapers').then(function(wallpapers) {
+      self._wallpaperLoading = false;
+      if (document.getElementById('wallpaper-overlay')) return;
       document.body.insertAdjacentHTML('beforeend', renderWallpaperMenu(wallpapers));
       self.bindWallpaperEvents();
+    }).catch(function() {
+      self._wallpaperLoading = false;
     });
   };
 
   _proto.bindWallpaperEvents = function() {
     var self = this;
     var overlay = document.getElementById('wallpaper-overlay');
-    var btnClose = document.getElementById('btn-close-wallpaper');
+    if (!overlay) return;
+    
+    var btnClose = overlay.querySelector('#btn-close-wallpaper');
     if (btnClose) btnClose.onclick = function() { overlay.remove(); };
+    
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
 
     // Tabs
-    document.querySelectorAll('.wallpaper-tab').forEach(function(tab) {
+    overlay.querySelectorAll('.wallpaper-tab').forEach(function(tab) {
       tab.onclick = function() {
-        document.querySelectorAll('.wallpaper-tab').forEach(function(t) { t.classList.remove('active'); });
+        overlay.querySelectorAll('.wallpaper-tab').forEach(function(t) { t.classList.remove('active'); });
         this.classList.add('active');
         var target = this.getAttribute('data-tab');
-        document.getElementById('wallpaper-modal-gallery').style.display = target === 'gallery' ? 'block' : 'none';
-        document.getElementById('wallpaper-modal-upload').style.display = target === 'upload' ? 'block' : 'none';
+        var gallery = overlay.querySelector('#wallpaper-modal-gallery');
+        var upload = overlay.querySelector('#wallpaper-modal-upload');
+        if (gallery) gallery.style.display = target === 'gallery' ? 'block' : 'none';
+        if (upload) upload.style.display = target === 'upload' ? 'block' : 'none';
       };
     });
 
     // Gallery selection
-    document.querySelectorAll('.wallpaper-item').forEach(function(item) {
+    overlay.querySelectorAll('.wallpaper-item').forEach(function(item) {
       item.onclick = function() {
         var url = this.getAttribute('data-url');
         self.updateWallpaper(url);
@@ -1782,8 +1794,8 @@ var App = /*#__PURE__*/function () {
     });
 
     // Upload
-    var zone = document.getElementById('wallpaper-upload-zone');
-    var input = document.getElementById('wallpaper-upload-input');
+    var zone = overlay.querySelector('#wallpaper-upload-zone');
+    var input = overlay.querySelector('#wallpaper-upload-input');
     if (zone && input) {
       zone.onclick = function() { input.click(); };
       input.onchange = function(e) {
@@ -1900,7 +1912,20 @@ var App = /*#__PURE__*/function () {
       if (!container) return;
       
       API.get('/admin/stats').then(function(stats) {
-        container.innerHTML = renderSystemWidget(stats);
+        var cpuEl = document.getElementById('stat-cpu');
+        var memEl = document.getElementById('stat-mem');
+        var netInEl = document.getElementById('stat-net-in');
+        var netOutEl = document.getElementById('stat-net-out');
+
+        if (cpuEl && memEl && netInEl && netOutEl) {
+           // Update in place to avoid flicker
+           cpuEl.textContent = stats.cpu + '%';
+           memEl.textContent = (stats.memory.used / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+           netInEl.innerHTML = Icons.down + ' ' + formatSize(stats.network.in) + '/s';
+           netOutEl.innerHTML = Icons.up + ' ' + formatSize(stats.network.out) + '/s';
+        } else {
+           container.innerHTML = renderSystemWidget(stats);
+        }
       }).catch(function(e){ console.error('Stats error:', e); });
     };
     
