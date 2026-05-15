@@ -1,3 +1,20 @@
+try {
+  require('express');
+  require('cookie-parser');
+} catch (e) {
+  console.error('\n[!] ERRO CRITICO: Dependencias nao encontradas.');
+  console.error('[*] Tentando instalar automaticamente, por favor aguarde...\n');
+  const { execSync } = require('child_process');
+  try {
+    execSync('npm install', { stdio: 'inherit' });
+    console.log('\n[*] Dependencias instaladas! Por favor, execute o servidor novamente.\n');
+    process.exit(0);
+  } catch (err) {
+    console.error('[!] Falha na instalacao automatica. Execute "npm install" manualmente.');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
