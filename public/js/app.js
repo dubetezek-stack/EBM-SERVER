@@ -267,6 +267,7 @@ var App = /*#__PURE__*/function () {
       appEl.innerHTML = renderDesktop(self.apps, self.user);
       self.bindDock('home');
       self.bindDesktopEvents();
+      self.startStatsUpdate();
       
       if (initialApp) {
          self.navigate(initialApp, params, true);
@@ -1887,6 +1888,24 @@ var App = /*#__PURE__*/function () {
         if (btnClose) btnClose.onclick = function() { self.navigate('desktop'); };
       });
     });
+  };
+
+  _proto.startStatsUpdate = function startStatsUpdate() {
+    var self = this;
+    if (this._statsInterval) clearInterval(this._statsInterval);
+    
+    var update = function() {
+      if (self.currentView !== 'desktop') return;
+      var container = document.getElementById('desktop-widgets');
+      if (!container) return;
+      
+      API.get('/admin/stats').then(function(stats) {
+        container.innerHTML = renderSystemWidget(stats);
+      }).catch(function(e){ console.error('Stats error:', e); });
+    };
+    
+    update();
+    this._statsInterval = setInterval(update, 5000);
   };
 
   return App;

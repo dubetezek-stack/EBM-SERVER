@@ -219,14 +219,20 @@ function renderDesktop(installedApps, user, appWindow) {
   return '<div class="desktop-view"' + style + '>' +
            '<div class="desktop-header">' +
              '<div class="desktop-greeting">' + greeting + ', ' + escapeHtml(userName) + '. <button id="btn-personalize" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;margin-left:10px;text-decoration:underline">Personalizar</button></div>' +
+           '</div>' +
+           '<div class="desktop-content">' +
+             '<div class="desktop-widgets-row">' +
+               '<div id="desktop-widgets"></div>' +
+             '</div>' +
+             '<div class="desktop-icons">' + appsHtml + '</div>' +
+           '</div>' +
+           '<div class="desktop-footer">' +
+             '<div class="desktop-pagination" id="desktop-pagination"><div class="page-pill active"></div></div>' +
              '<div class="desktop-search">' +
                Icons.search +
                '<input type="text" placeholder="Pesquisar..." id="desktop-search-input">' +
-               '<span class="shortcut-hint">Ctrl+K</span>' +
+               '<span class="shortcut-hint">Pesquisar</span>' +
              '</div>' +
-           '</div>' +
-           '<div class="desktop-content">' +
-             '<div class="desktop-icons">' + appsHtml + '</div>' +
            '</div>' +
            (appWindow ? '<div class="app-window-overlay">' + appWindow + '</div>' : '') +
            renderDock() +
@@ -583,6 +589,35 @@ function renderPreviewModal(driveId, subpath, file) {
              '</div>' +
              '<div class="modal-body" style="padding:10px; background:rgba(0,0,0,0.4); display:flex; justify-content:center; align-items:center; min-height:200px">' +
                contentHtml +
+             '</div>' +
+           '</div>' +
+         '</div>';
+}
+
+function renderSystemWidget(stats) {
+  if (!stats) return '';
+  
+  var memUsed = (stats.memory.used / (1024 * 1024 * 1024)).toFixed(2);
+  var netIn = formatSize(stats.network.in) + '/s';
+  var netOut = formatSize(stats.network.out) + '/s';
+
+  return '<div class="system-widget pill-style">' +
+           '<div class="widget-pill">' +
+             '<div class="widget-icon">' + Icons.cpu + '</div>' +
+             '<div class="widget-label">CPU</div>' +
+             '<div class="widget-value">' + stats.cpu + '%</div>' +
+           '</div>' +
+           '<div class="widget-pill">' +
+             '<div class="widget-icon">' + Icons.ram + '</div>' +
+             '<div class="widget-label">Memória</div>' +
+             '<div class="widget-value">' + memUsed + ' GB</div>' +
+           '</div>' +
+           '<div class="widget-pill">' +
+             '<div class="widget-icon">' + Icons.speed + '</div>' +
+             '<div class="widget-label">Rede</div>' +
+             '<div style="display:flex; flex-direction:column; align-items:center; gap:2px">' +
+               '<div class="widget-value" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
+               '<div class="widget-value" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
              '</div>' +
            '</div>' +
          '</div>';

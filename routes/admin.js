@@ -465,6 +465,62 @@ router.get('/logs', requireAdmin, (req, res) => {
   res.json(global.serverLogs || []);
 });
 
+let prevNetStats = null;
+let prevNetTime = Date.now();
+
+// === SYSTEM STATS ===
+router.get('/stats', (req, res) => {
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  
+  // CPU usage on Windows
+  let cpuUsage = 0;
+  try {
+    const output = execSync('wmic cpu get loadpercentage /value').toString();
+    const match = output.match(/LoadPercentage=(\d+)/);
+    if (match) cpuUsage = parseInt(match[1]);
+  } catch (e) {
+    cpuUsage = Math.round(os.loadavg()[0] * 10) || 0;
+  }
+
+  // Network Speed
+  let networkSpeed = { in: 0, out: 0 };
+  try {
+    const netCmd = 'powershell -Command "Get-NetAdapterStatistics | Select-Object ReceivedBytes, SentBytes | ConvertTo-Json"';
+    const netOutput = execSync(netCmd).toString();
+    const data = JSON.parse(netOutput);
+    const adapters = Array.isArray(data) ? data : [data];
+    
+    let currentIn = 0;
+    let currentOut = 0;
+    adapters.forEach(a => {
+      currentIn += a.ReceivedBytes || 0;
+      currentOut += a.SentBytes || 0;
+    });
+    
+    const now = Date.now();
+    if (prevNetStats) {
+      const timeDiff = Math.max((now - prevNetTime) / 1000, 1);
+      networkSpeed.in = Math.round((currentIn - prevNetStats.in) / timeDiff);
+      networkSpeed.out = Math.round((currentOut - prevNetStats.out) / timeDiff);
+    }
+    prevNetStats = { in: currentIn, out: currentOut };
+    prevNetTime = now;
+  } catch(e) {}
+
+  res.json({
+    cpu: cpuUsage,
+    memory: {
+      total: totalMem,
+      used: usedMem,
+      free: freeMem,
+      percent: Math.round((usedMem / totalMem) * 100)
+    },
+    network: networkSpeed
+  });
+});
+
 // === SERVER CONTROL ===
 
 router.post('/server/shutdown', requireAdmin, (req, res) => {
