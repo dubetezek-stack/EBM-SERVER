@@ -56,12 +56,6 @@ app.use((req, res, next) => {
     } catch (e) {}
   });
   
-  // If a request comes for a root-level resource but we have an active app cookie, redirect it
-  const currentApp = req.cookies?.current_app;
-  const appPaths = ['/web/', '/System/', '/Branding/', '/Items/', '/Users/', '/DisplayPreferences/', '/Localization/', '/Startup/'];
-  if (currentApp && appPaths.some(p => req.url.startsWith(p))) {
-    return res.redirect(`/api/apps/proxy/${currentApp}${req.url}`);
-  }
   
   next();
 });
@@ -84,6 +78,19 @@ app.options('/speedtest/upload', (req, res) => {
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Global App Resource Interceptor (Moved here so req.cookies is populated)
+app.use((req, res, next) => {
+  const currentApp = req.cookies?.current_app;
+  const appPaths = ['/web/', '/System/', '/Branding/', '/Items/', '/Users/', '/DisplayPreferences/', '/Localization/', '/Startup/'];
+  if (currentApp && appPaths.some(p => req.url.startsWith(p))) {
+    // Check if it's already a proxy request to avoid loops
+    if (!req.url.startsWith('/api/apps/proxy/') && !req.url.startsWith('/proxy/')) {
+      return res.redirect(`/api/apps/proxy/${currentApp}${req.url}`);
+    }
+  }
+  next();
+});
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api/admin/logs')) {
     addLog('INFO', req.method + ' ' + req.path, req.ip.replace('::ffff:', ''));

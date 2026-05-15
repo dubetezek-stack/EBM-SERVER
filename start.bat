@@ -21,6 +21,19 @@ if %errorlevel% neq 0 (
 :: Encerrar instâncias anteriores para evitar conflito de porta
 taskkill /F /IM node.exe /T 2>nul
 
+:: Auto-install dependencies if node_modules is missing
+if not exist "node_modules\" (
+    echo [*] Modulos nao encontrados. Instalando dependencias...
+    echo Isso pode levar um minuto na primeira vez...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo [!] ERRO: Falha ao instalar dependencias. Verifique sua conexao.
+        pause
+        exit /b
+    )
+    echo [*] Dependencias instaladas com sucesso!
+)
+
 :run
 :: Get configured port
 set PORT=3000
