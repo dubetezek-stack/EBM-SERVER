@@ -126,6 +126,11 @@ var App = /*#__PURE__*/function () {
                            '<div class="loading"><div class="spinner"></div></div>' +
                          '</div>' +
                        '</div>';
+    } else {
+       var appInfo = (this.apps || []).find(function(a) { return a.id === view; });
+       if (appInfo) {
+          windowContent = renderGenericAppView(appInfo);
+       }
     }
 
     var overlay = document.querySelector('.app-window-overlay');
@@ -160,13 +165,6 @@ var App = /*#__PURE__*/function () {
     } else if (view === 'appstore') {
        this.bindAppStore();
        this.bindDock('store');
-    } else {
-       // Generic App Handler
-       var appInfo = (this.apps || []).find(function(a) { return a.id === view; });
-       if (appInfo) {
-          windowContent = renderGenericAppView(appInfo);
-          this.bindDock('files'); // Default dock state
-       }
     }
 
     var btnClose = document.getElementById('btn-window-close');
@@ -711,6 +709,21 @@ var App = /*#__PURE__*/function () {
               showToast(e.message, 'error');
               toggle.checked = !toggle.checked;
             });
+          };
+        });
+
+        // Bind Uninstall App
+        document.querySelectorAll('.btn-uninstall-app').forEach(function(btn) {
+          btn.onclick = function(e) {
+            e.stopPropagation();
+            var appId = this.getAttribute('data-app-id');
+            if (confirm('Tem certeza que deseja desinstalar este aplicativo? Isso removerá o acesso de todos os usuários.')) {
+              API.post('/apps/uninstall/' + appId).then(function() {
+                showToast('Aplicativo desinstalado com sucesso!', 'success');
+                self.loadConfigTab('apps'); // Refresh
+                self.showDesktop(); // Update desktop icons
+              }).catch(function(e) { showToast(e.message, 'error'); });
+            }
           };
         });
 
@@ -1853,6 +1866,20 @@ var App = /*#__PURE__*/function () {
               btnEl.textContent = 'Instalar';
               showToast(err.message, 'error');
             });
+          };
+        });
+
+        // Bind uninstall buttons
+        body.querySelectorAll('.btn-uninstall-store').forEach(function(btn) {
+          btn.onclick = function() {
+            var appId = this.getAttribute('data-app-id');
+            if (confirm('Tem certeza que deseja desinstalar este aplicativo?')) {
+              API.post('/apps/uninstall/' + appId).then(function() {
+                showToast('Aplicativo desinstalado!', 'success');
+                self.bindAppStore(); // Refresh
+                self.showDesktop(); // Update desktop
+              }).catch(function(err) { showToast(err.message, 'error'); });
+            }
           };
         });
 

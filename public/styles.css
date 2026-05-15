@@ -1413,6 +1413,22 @@ input:checked + .slider:before { transform: translateX(20px); }
   cursor: default;
 }
 
+.btn-uninstall-store {
+  background: rgba(255, 69, 58, 0.1);
+  color: #ff453a;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-uninstall-store:hover {
+  background: rgba(255, 69, 58, 0.2);
+}
+
 /* ANIMATIONS */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }

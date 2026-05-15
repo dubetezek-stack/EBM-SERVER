@@ -321,8 +321,10 @@ function renderDock() {
 function renderAppStore(availableApps, installedIds) {
   var appsHtml = '';
   availableApps.forEach(function(app) {
-    var isInstalled = installedIds.includes(app.id);
+    var isInstalled = installedIds.indexOf(app.id) !== -1;
     var icon = Icons[app.icon] || Icons.file;
+    var isCore = ['explorer', 'settings', 'cameras', 'speedtest'].indexOf(app.id) !== -1;
+    
     appsHtml += '<div class="app-card">' +
                   '<div class="app-card-icon">' + icon + '</div>' +
                   '<div class="app-card-info">' +
@@ -330,7 +332,7 @@ function renderAppStore(availableApps, installedIds) {
                     '<div class="app-card-desc">' + escapeHtml(app.description) + '</div>' +
                     '<div class="app-card-actions">' +
                       (isInstalled ? 
-                        '<button class="btn-install installed" disabled>Instalado</button>' : 
+                        (isCore ? '<button class="btn-install installed" disabled>Sistema</button>' : '<button class="btn-uninstall-store" data-app-id="' + app.id + '">Desinstalar</button>') : 
                         '<button class="btn-install" data-app-id="' + app.id + '">Instalar</button>') +
                     '</div>' +
                   '</div>' +
@@ -379,6 +381,7 @@ function renderAppsConfig(apps) {
   apps.forEach(function(app) {
     var p = app.permissions || { byRole: {} };
     var icon = Icons[app.icon] || Icons.file;
+    var isCore = ['explorer', 'settings', 'cameras', 'speedtest'].indexOf(app.id) !== -1;
     
     html += '<div class="config-card app-cfg-card" data-app-id="' + app.id + '">' +
               '<div class="config-card-header">' +
@@ -387,6 +390,7 @@ function renderAppsConfig(apps) {
                   '<div class="config-card-name">' + escapeHtml(app.name) + '</div>' +
                   '<div class="config-card-detail">ID: ' + app.id + '</div>' +
                 '</div>' +
+                (!isCore ? '<div class="config-card-actions"><button class="btn-icon btn-uninstall-app" data-app-id="' + app.id + '" title="Desinstalar">' + Icons.trash + '</button></div>' : '') +
               '</div>' +
               '<div class="config-card-body">' +
                 '<div style="font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); text-transform:uppercase; letter-spacing:0.05em">Acesso por Grupo</div>' +
