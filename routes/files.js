@@ -50,10 +50,12 @@ function resolvePath(driveId, subpath, user) {
   const permissions = getDrivePermissions(drive, user);
 
   const basePath = path.resolve(drive.path);
+  const normalizedBase = basePath.endsWith(path.sep) ? basePath : basePath + path.sep;
   const fullPath = subpath ? path.resolve(basePath, subpath) : basePath;
 
   // Security: prevent path traversal
-  if (!fullPath.startsWith(basePath)) return null;
+  // If fullPath is exactly basePath, it's fine. Otherwise, it MUST start with normalizedBase (trailing slash)
+  if (fullPath !== basePath && !fullPath.startsWith(normalizedBase)) return null;
 
   return { fullPath, drive, basePath, permissions };
 }

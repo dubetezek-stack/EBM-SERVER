@@ -9,6 +9,44 @@ const os = require('os');
 const { authenticate } = require('../middleware/auth');
 const { addSession } = require('../sessions');
 
+// Simple In-Memory Rate Limiting
+const loginAttempts = new Map();
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const MAX_ATTEMPTS = 5;
+
+function checkRateLimit(req, res, next) {
+  const ip = (req.ip || '').replace('::ffff:', '');
+  const now = Date.now();
+  const attemptData = loginAttempts.get(ip) || { count: 0, lastAttempt: 0 };
+
+  // Reset if window has passed
+  if (now - attemptData.lastAttempt > RATE_LIMIT_WINDOW) {
+    attemptData.count = 0;
+  }
+
+  if (attemptData.count >= MAX_ATTEMPTS) {
+    const minutesLeft = Math.ceil((RATE_LIMIT_WINDOW - (now - attemptData.lastAttempt)) / 60000);
+    return res.status(429).json({ 
+      error: 'Muitas tentativas de login. Por segurança, aguarde ' + minutesLeft + ' minuto(s).' 
+    });
+  }
+
+  next();
+}
+
+function recordLoginAttempt(ip, success) {
+  const cleanIp = (ip || '').replace('::ffff:', '');
+  const now = Date.now();
+  if (success) {
+    loginAttempts.delete(cleanIp);
+  } else {
+    const data = loginAttempts.get(cleanIp) || { count: 0, lastAttempt: 0 };
+    data.count++;
+    data.lastAttempt = now;
+    loginAttempts.set(cleanIp, data);
+  }
+}
+
 const { readJSON, writeJSON, DATA_DIR } = require('../utils/storage');
 
 const dataDir = DATA_DIR;
@@ -78,7 +116,7 @@ router.post('/setup', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', checkRateLimit, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Nome e senha são obrigatórios' });
@@ -91,6 +129,7 @@ router.post('/login', async (req, res) => {
   if (!user) {
     console.log('Login failed: User not found:', username);
     global.addLog('WARN', 'Login falhou: Usuário não encontrado: ' + username, req.ip);
+    recordLoginAttempt(req.ip, false);
     return res.status(401).json({ error: 'Usuário ou senha incorretos' });
   }
 
@@ -98,6 +137,7 @@ router.post('/login', async (req, res) => {
   if (!valid) {
     console.log('Login failed: Invalid password for:', username);
     global.addLog('WARN', 'Login falhou: Senha inválida para: ' + username, req.ip);
+    recordLoginAttempt(req.ip, false);
     return res.status(401).json({ error: 'Usuário ou senha incorretos' });
   }
 
@@ -107,6 +147,7 @@ router.post('/login', async (req, res) => {
   const token = jwt.sign({ id: user.id }, config.jwtSecret, { expiresIn: '7d' });
   const sessionData = { userId: user.id, username: user.username, role: user.role, ip: req.ip, userAgent: req.headers['user-agent'] };
   addSession(token, sessionData);
+  recordLoginAttempt(req.ip, true);
 
   // Get the session we just created to have the MAC
   const { getSession } = require('../sessions');
