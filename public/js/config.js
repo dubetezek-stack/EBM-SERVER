@@ -366,6 +366,7 @@ function renderServerConfig(serverConfig) {
     '<span>Iniciar com o Windows</span>' +
     '<label class="switch"><input type="checkbox" id="cfg-server-startup"><span class="slider"></span></label>' +
     '</div>' +
+    '<div style="font-size:12px;color:var(--text-muted)">' + (serverConfig.version || '...') + '</div>' +
     '</div>' +
     '<div style="display:flex;gap:12px;flex-wrap:wrap">' + 
     '<button class="btn btn-sm" id="server-update" type="button" style="background:var(--accent);color:#fff">' + Icons.refresh + 'Atualizar Sistema' + '</button>' +

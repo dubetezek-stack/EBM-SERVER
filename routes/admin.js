@@ -408,6 +408,12 @@ router.delete('/sessions/:id', requireAdmin, (req, res) => {
 
 router.get('/server', requireAdmin, (req, res) => {
   const config = readJSON(configPath) || {};
+  let version = 'v1.0.0';
+  try {
+    const { execSync } = require('child_process');
+    version = execSync('git log -1 --format="%h - %cd (%cr)" --date=format:"%d/%m/%Y %H:%M"').toString().trim();
+  } catch (e) {}
+
   res.json({
     port: config.port || 3000,
     serverName: config.serverName || 'EBM SERVER',
@@ -417,7 +423,8 @@ router.get('/server', requireAdmin, (req, res) => {
     dnsCheckInterval: config.dnsCheckInterval || 1,
     nextCheckSeconds: global.nextCheckTime ? Math.max(0, Math.floor((global.nextCheckTime - Date.now()) / 1000)) : 0,
     nextUpdateSeconds: global.nextUpdateTime ? Math.max(0, Math.floor((global.nextUpdateTime - Date.now()) / 1000)) : 0,
-    camera: config.camera || { ip: '', port: '', user: '', pass: '', rtspPort: 554 }
+    camera: config.camera || { ip: '', port: '', user: '', pass: '', rtspPort: 554 },
+    version: version
   });
 });
 
