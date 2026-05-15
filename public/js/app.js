@@ -1933,11 +1933,27 @@ var App = /*#__PURE__*/function () {
     });
   };
 
+  _proto.updateWeather = function updateWeather() {
+    var self = this;
+    self._lastWeather = Date.now();
+    API.get('/admin/weather').then(function(data) {
+      var weatherEl = document.getElementById('stat-weather');
+      var descEl = document.getElementById('stat-weather-desc');
+      var cityEl = document.getElementById('stat-weather-city');
+      if (data && data.temp) {
+        if (weatherEl) weatherEl.textContent = data.temp + '°C';
+        if (descEl) descEl.textContent = data.desc || '--';
+        if (cityEl) cityEl.textContent = data.city || '--';
+      }
+    }).catch(function(err) { console.log('Weather err:', err); });
+  };
+
   _proto.startStatsUpdate = function startStatsUpdate() {
     var self = this;
     if (this._statsInterval) clearInterval(this._statsInterval);
+    if (this._clockInterval) clearInterval(this._clockInterval);
     
-    var update = function() {
+    var updateStats = function() {
       if (self.currentView !== 'desktop') return;
       var container = document.getElementById('desktop-widgets');
       if (!container) return;
@@ -1949,19 +1965,31 @@ var App = /*#__PURE__*/function () {
         var netOutEl = document.getElementById('stat-net-out');
 
         if (cpuEl && memEl && netInEl && netOutEl) {
-           // Update in place to avoid flicker
-           cpuEl.textContent = stats.cpu + '%';
-           memEl.textContent = (stats.memory.used / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-           netInEl.innerHTML = Icons.down + ' ' + formatSize(stats.network.in) + '/s';
-           netOutEl.innerHTML = Icons.up + ' ' + formatSize(stats.network.out) + '/s';
+          cpuEl.textContent = stats.cpu + '%';
+          memEl.textContent = (stats.memory.used / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+          netInEl.innerHTML = Icons.down + ' ' + formatSize(stats.network.in) + '/s';
+          netOutEl.innerHTML = Icons.up + ' ' + formatSize(stats.network.out) + '/s';
         } else {
-           container.innerHTML = renderSystemWidget(stats);
+          container.innerHTML = renderSystemWidget(stats);
         }
       }).catch(function(e){ console.error('Stats error:', e); });
     };
+
+    var updateClock = function() {
+      var timeEl = document.getElementById('stat-time');
+      if (timeEl) {
+        var now = new Date();
+        timeEl.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      }
+      if (!self._lastWeather || Date.now() - self._lastWeather > 3600000) {
+        self.updateWeather();
+      }
+    };
     
-    update();
-    this._statsInterval = setInterval(update, 5000);
+    updateStats();
+    updateClock();
+    this._statsInterval = setInterval(updateStats, 5000);
+    this._clockInterval = setInterval(updateClock, 1000);
   };
 
   return App;

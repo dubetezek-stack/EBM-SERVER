@@ -17,6 +17,35 @@ const usersPath = path.join(dataDir, 'users.json');
 
 router.use(authenticate);
 
+// Get weather based on Server IP
+router.get('/weather', (req, res) => {
+  const https = require('https');
+  https.get('https://wttr.in?format=j1&lang=pt', (wRes) => {
+    let data = '';
+    wRes.on('data', (chunk) => data += chunk);
+    wRes.on('end', () => {
+      try {
+        const weather = JSON.parse(data);
+        if (weather.current_condition && weather.current_condition[0]) {
+          const cond = weather.current_condition[0];
+          const area = weather.nearest_area ? weather.nearest_area[0] : null;
+          res.json({ 
+            temp: cond.temp_C,
+            desc: cond.lang_pt ? cond.lang_pt[0].value : cond.weatherDesc[0].value,
+            city: area ? area.areaName[0].value : 'Local'
+          });
+        } else {
+          res.status(500).send('Clima indisponível');
+        }
+      } catch (e) {
+        res.status(500).send('Erro ao processar clima');
+      }
+    });
+  }).on('error', (err) => {
+    res.status(500).send('Erro na API de clima');
+  });
+});
+
 // === DRIVES ===
 
 // Helper to check if Master can manage a drive/user

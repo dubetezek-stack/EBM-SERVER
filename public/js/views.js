@@ -604,21 +604,35 @@ function renderSystemWidget(stats) {
 
   return '<div class="system-widget pill-style">' +
            '<div class="widget-pill">' +
+             '<div class="widget-icon">' + Icons.clock + '</div>' +
+             '<div class="widget-label">Hora</div>' +
+             '<div class="widget-value" id="stat-time">--:--</div>' +
+           '</div>' +
+           '<div class="widget-pill">' +
+             '<div class="widget-icon">' + Icons.weather + '</div>' +
+             '<div class="widget-label">Clima</div>' +
+             '<div style="display:flex; flex-direction:column; align-items:center">' +
+               '<div class="widget-value" id="stat-weather">--°C</div>' +
+               '<div id="stat-weather-desc" style="font-size:11px; color:rgba(255,255,255,0.9); margin-top:4px; text-align:center; font-weight:500; white-space:nowrap">--</div>' +
+               '<div id="stat-weather-city" style="font-size:10px; color:rgba(255,255,255,0.6); text-align:center; white-space:nowrap">--</div>' +
+             '</div>' +
+           '</div>' +
+           '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.cpu + '</div>' +
              '<div class="widget-label">CPU</div>' +
              '<div class="widget-value" id="stat-cpu">' + stats.cpu + '%</div>' +
            '</div>' +
            '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.ram + '</div>' +
-             '<div class="widget-label">Memória</div>' +
+             '<div class="widget-label">RAM</div>' +
              '<div class="widget-value" id="stat-mem">' + memUsed + ' GB</div>' +
            '</div>' +
            '<div class="widget-pill">' +
              '<div class="widget-icon">' + Icons.speed + '</div>' +
              '<div class="widget-label">Rede</div>' +
              '<div style="display:flex; flex-direction:column; align-items:center; gap:2px">' +
-               '<div class="widget-value" id="stat-net-out" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
-               '<div class="widget-value" id="stat-net-in" style="font-size:10px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
+               '<div class="widget-value" id="stat-net-out" style="font-size:9px; display:flex; align-items:center; gap:2px">' + Icons.up + ' ' + netOut + '</div>' +
+               '<div class="widget-value" id="stat-net-in" style="font-size:9px; display:flex; align-items:center; gap:2px">' + Icons.down + ' ' + netIn + '</div>' +
              '</div>' +
            '</div>' +
          '</div>';
