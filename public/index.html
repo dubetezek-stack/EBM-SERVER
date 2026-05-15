@@ -22,6 +22,17 @@
     }
     return false;
   };
+
+  // Preload wallpapers in background after initial load
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      // Preload the first 22 system wallpapers
+      for (var i = 1; i <= 22; i++) {
+        var img = new Image();
+        img.src = '/wallpapers/' + i + '.jpg';
+      }
+    }, 1500); // Wait 1.5s after load to not block login UI
+  });
   </script>
 </head>
 <body>
