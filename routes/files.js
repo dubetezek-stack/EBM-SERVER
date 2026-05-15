@@ -357,9 +357,12 @@ router.post('/rename', (req, res) => {
   const parentDir = path.dirname(resolved.fullPath);
   const newPath = path.join(parentDir, newName);
 
-  // Security: prevent path traversal
-  if (!newPath.toLowerCase().startsWith(parentDir.toLowerCase())) {
-     return res.status(400).json({ error: 'Nome inválido' });
+  // Security: prevent path traversal (ensure both are in the same directory)
+  const normalizedNewPath = path.resolve(newPath);
+  if (!normalizedNewPath.toLowerCase().startsWith(parentDir.toLowerCase() + path.sep)) {
+     if (normalizedNewPath.toLowerCase() !== parentDir.toLowerCase()) {
+        return res.status(400).json({ error: 'Nome inválido' });
+     }
   }
 
   if (fs.existsSync(newPath)) {
