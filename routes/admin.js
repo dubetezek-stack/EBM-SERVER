@@ -597,7 +597,9 @@ router.post('/server/update', requireAdmin, async (req, res) => {
     // 3. Discover branch
     let remoteRef = '';
     let targetBranch = 'master';
-    const allBranches = execSync('git branch -a').toString().split('\n').map(b => b.trim().replace('* ', ''));
+    const allBranches = execSync('git branch -a').toString().split('\n')
+      .map(b => b.trim().replace('* ', ''))
+      .filter(b => !b.includes(' -> ')); // Ignore symbolic refs like HEAD -> ...
     
     for (const cand of ['master', 'main']) {
       const found = allBranches.find(b => b.startsWith('remotes/') && b.endsWith('/' + cand));
