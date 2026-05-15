@@ -210,17 +210,21 @@ var App = /*#__PURE__*/function () {
       btn.textContent = 'Entrando...';
 
       API.post('/auth/login', { username: user, password: pass }).then(function (res) {
+        console.log('[Auth] Resposta do servidor:', res);
         if (res.twoFactorRequired) {
+          console.log('[Auth] Redirecionando para Verificação 2FA');
           document.getElementById('app').innerHTML = render2FA();
           self.bind2FA(res.tempToken);
           return;
         }
 
         if (res.twoFactorSetupRequired) {
+          console.log('[Auth] Redirecionando para Setup 2FA Obrigatório');
           self.force2FASetup(res.tempToken);
           return;
         }
         if (res && res.token) {
+          console.log('[Auth] Login Direto Sucesso');
           API.setToken(res.token);
           self.user = res.user;
           self.navigate('desktop');
