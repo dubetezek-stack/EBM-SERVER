@@ -78,6 +78,46 @@ function renderLogin() {
       <div class="form-group"><label>Usuário</label><input class="form-input" id="login-user" placeholder="Seu nome de usuário" required autocomplete="off"></div>
       <div class="form-group"><label>Senha</label><input class="form-input" id="login-pass" type="password" placeholder="••••••••" required></div>
       <button type="submit" class="btn btn-primary">Entrar</button>
+      <div style="text-align:center;margin-top:16px">
+        <button type="button" id="btn-forgot-pass" style="background:none;border:none;color:var(--text-secondary);font-size:12px;cursor:pointer;text-decoration:underline">Esqueci minha senha</button>
+      </div>
+    </form>
+  </div></div>`;
+}
+
+function renderResetPassword() {
+  return `<div class="auth-page"><div class="auth-card">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#60cdff" stroke-width="2" style="width:48px;height:48px;margin-bottom:10px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <h1>Recuperar Senha</h1>
+      <p>Use um código de recuperação do 2FA</p>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <form id="reset-form">
+      <div class="form-group"><label>Usuário</label><input class="form-input" id="reset-user" placeholder="Seu nome de usuário" required autocomplete="off"></div>
+      <div class="form-group"><label>Código de Recuperação</label><input class="form-input" id="reset-code" placeholder="Ex: ABC12345" required style="font-family:monospace;text-transform:uppercase"></div>
+      <div class="form-group"><label>Nova Senha</label><input class="form-input" id="reset-new-pass" type="password" placeholder="••••••••" required></div>
+      <button type="submit" class="btn btn-primary">Redefinir Senha</button>
+      <button type="button" class="btn btn-secondary" style="margin-top:12px;width:100%" onclick="window.location.reload()">Voltar</button>
+    </form>
+  </div></div>`;
+}
+
+function render2FA() {
+  return `<div class="auth-page"><div class="auth-card">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#60cdff" stroke-width="2" style="width:48px;height:48px;margin-bottom:10px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <h1>Verificação 2FA</h1>
+      <p>Insira o código do seu Google Authenticator</p>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <form id="2fa-form">
+      <div class="form-group">
+        <label>Código de Segurança</label>
+        <input class="form-input" id="login-2fa-code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" required autocomplete="one-time-code" autofocus style="text-align:center;font-size:24px;letter-spacing:8px">
+      </div>
+      <button type="submit" class="btn btn-primary">Verificar e Entrar</button>
+      <button type="button" class="btn btn-secondary" style="margin-top:12px;width:100%" onclick="window.location.reload()">Voltar</button>
     </form>
   </div></div>`;
 }

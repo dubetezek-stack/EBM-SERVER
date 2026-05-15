@@ -257,20 +257,20 @@ function renderWallpaperMenu(wallpapers) {
   var html = '<div class="wallpaper-modal-overlay" id="wallpaper-overlay">' +
                '<div class="wallpaper-modal">' +
                  '<div class="wallpaper-modal-header">' +
-                   '<h3 style="font-size:18px">Personalizar Desktop</h3>' +
+                   '<h3 style="font-size:18px">Perfil e Personalização</h3>' +
                    '<button class="btn-icon" id="btn-close-wallpaper">' + Icons.close + '</button>' +
                  '</div>' +
-                 '<div class="wallpaper-modal-tabs">' +
-                    '<button class="wallpaper-tab active" data-tab="gallery">Galeria</button>' +
-                    '<button class="wallpaper-tab" data-tab="upload">Enviar Imagem</button>' +
+                 '<div class="wallpaper-tabs">' +
+                    '<div class="wallpaper-tab active" data-tab="gallery">Galeria</div>' +
+                    '<div class="wallpaper-tab" data-tab="upload">Enviar Imagem</div>' +
                  '</div>' +
                  '<div class="wallpaper-modal-content" id="wallpaper-modal-gallery">' +
                    '<div class="wallpaper-grid">';
                    
   (wallpapers || []).forEach(function(w) {
     html += '<div class="wallpaper-item" data-url="' + w + '">' +
-              '<img src="' + w + '" loading="lazy">' +
-            '</div>';
+               '<img src="' + w + '" loading="lazy">' +
+             '</div>';
   });
 
   html +=          '</div>' +
@@ -285,6 +285,36 @@ function renderWallpaperMenu(wallpapers) {
                '</div>' +
              '</div>';
   return html;
+}
+
+function render2FASetup(qrCode, secret) {
+  return '<div style="text-align:center">' +
+           '<h4 style="margin-bottom:16px">Escaneie este QR Code</h4>' +
+           '<div style="background:#fff;padding:10px;border-radius:8px;display:inline-block;margin-bottom:16px"><img src="' + qrCode + '" style="display:block;width:180px;height:180px"></div>' +
+           '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Ou digite o código manualmente:</p>' +
+           '<div style="background:rgba(255,255,255,0.05);padding:10px 12px;border-radius:8px;font-family:monospace;font-weight:bold;letter-spacing:1px;color:var(--accent-blue);margin-bottom:24px;word-break:break-all;font-size:11px;line-height:1.4">' + secret + '</div>' +
+           '<div style="margin-top:24px;text-align:left">' +
+             '<label style="display:block;font-size:11px;color:var(--text-secondary);margin-bottom:8px">Digite o código de 6 dígitos do app:</label>' +
+             '<input type="text" id="confirm-2fa-code" class="form-input" placeholder="000000" maxlength="6" style="text-align:center;font-size:18px;letter-spacing:4px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:#fff;padding:10px;border-radius:8px;outline:none">' +
+           '</div>' +
+           '<button class="btn btn-primary" id="btn-confirm-2fa" style="width:100%;margin-top:16px;background:var(--accent-blue);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer">Verificar e Ativar</button>' +
+         '</div>';
+}
+
+function renderRecoveryCodes(codes) {
+  var codesHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:20px 0">';
+  codes.forEach(function(c) {
+    codesHtml += '<div style="background:rgba(255,255,255,0.05);padding:8px;border-radius:4px;font-family:monospace;font-size:13px;font-weight:bold">' + c + '</div>';
+  });
+  codesHtml += '</div>';
+
+  return '<div style="text-align:center">' +
+           '<div style="color:var(--accent-green);font-size:48px;margin-bottom:12px;display:flex;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:64px;height:64px"><polyline points="20 6 9 17 4 12"/></svg></div>' +
+           '<h4>2FA Ativado!</h4>' +
+           '<p style="font-size:12px;color:var(--text-secondary);margin-top:8px">Guarde estes códigos de recuperação em um lugar seguro. Eles permitem o acesso se você perder o celular:</p>' +
+           codesHtml +
+           '<button class="btn btn-primary" onclick="window.location.reload()" style="width:100%;background:var(--accent-blue);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer">Concluir</button>' +
+         '</div>';
 }
 
 

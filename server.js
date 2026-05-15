@@ -1,6 +1,8 @@
 try {
   require('express');
   require('cookie-parser');
+  require('speakeasy');
+  require('qrcode');
 } catch (e) {
   console.error('\n[!] ERRO CRITICO: Dependencias nao encontradas.');
   console.error('[*] Tentando instalar automaticamente, por favor aguarde...\n');

@@ -41,7 +41,13 @@ function authenticate(req, res, next) {
     if (!user) {
       return res.status(401).json({ error: 'Usuário não encontrado' });
     }
-    req.user = { id: user.id, username: user.username, role: user.role, settings: user.settings || {} };
+    req.user = { 
+      id: user.id, 
+      username: user.username, 
+      role: user.role, 
+      twoFactorEnabled: !!user.twoFactorEnabled,
+      settings: user.settings || {} 
+    };
 
     // Inject session info (IP, MAC)
     const session = getSession(token);

@@ -87,6 +87,7 @@ var App = /*#__PURE__*/function () {
       var isAdmin = role === 'admin';
       var tabsHtml = '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>' +
         '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>' +
+        '<button class="config-tab" data-tab="security" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Segurança</button>' +
         '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
       if (isAdmin) {
         tabsHtml += '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Conectados</button>' +
@@ -209,6 +210,16 @@ var App = /*#__PURE__*/function () {
       btn.textContent = 'Entrando...';
 
       API.post('/auth/login', { username: user, password: pass }).then(function (res) {
+        if (res.twoFactorRequired) {
+          document.getElementById('app').innerHTML = render2FA();
+          self.bind2FA(res.tempToken);
+          return;
+        }
+
+        if (res.twoFactorSetupRequired) {
+          self.force2FASetup(res.tempToken);
+          return;
+        }
         if (res && res.token) {
           API.setToken(res.token);
           self.user = res.user;
@@ -219,6 +230,93 @@ var App = /*#__PURE__*/function () {
         errEl.classList.add('visible');
         btn.disabled = false;
         btn.textContent = 'Entrar';
+      });
+    };
+
+    var btnForgot = document.getElementById('btn-forgot-pass');
+    if (btnForgot) {
+      btnForgot.onclick = function() {
+        document.getElementById('app').innerHTML = renderResetPassword();
+        self.bindResetPassword();
+      };
+    }
+  };
+
+  _proto.bind2FA = function bind2FA(tempToken) {
+    var self = this;
+    var form = document.getElementById('2fa-form');
+    if (!form) return;
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var code = document.getElementById('login-2fa-code').value.trim();
+      var errEl = document.getElementById('auth-error');
+      var btn = form.querySelector('button[type=submit]');
+
+      btn.disabled = true;
+      btn.textContent = 'Verificando...';
+
+      API.post('/auth/2fa/verify', { token: tempToken, code: code }).then(function (res) {
+        if (res && res.token) {
+          API.setToken(res.token);
+          self.user = res.user;
+          self.navigate('desktop');
+        }
+      }).catch(function (err) {
+        errEl.textContent = err.message;
+        errEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Verificar e Entrar';
+      });
+    };
+  };
+
+  _proto.bindResetPassword = function bindResetPassword() {
+    var self = this;
+    var form = document.getElementById('reset-form');
+    if (!form) return;
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var user = document.getElementById('reset-user').value.trim();
+      var code = document.getElementById('reset-code').value.trim();
+      var newPass = document.getElementById('reset-new-pass').value;
+      var errEl = document.getElementById('auth-error');
+      var btn = form.querySelector('button[type=submit]');
+
+      btn.disabled = true;
+      btn.textContent = 'Processando...';
+
+      API.post('/auth/reset-password', { username: user, recoveryCode: code, newPassword: newPass }).then(function (res) {
+        showToast('Senha alterada com sucesso!', 'success');
+        setTimeout(function() { window.location.reload(); }, 1500);
+      }).catch(function (err) {
+        errEl.textContent = err.message;
+        errEl.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Redefinir Senha';
+      });
+    };
+  };
+
+  _proto.bindResetPassword = function () {
+    var self = this;
+    var form = document.getElementById('reset-form');
+    if (!form) return;
+    form.onsubmit = function (e) {
+      e.preventDefault();
+      var data = {
+        username: document.getElementById('reset-user').value,
+        recoveryCode: document.getElementById('reset-code').value,
+        newPassword: document.getElementById('reset-new-pass').value
+      };
+      API.post('/auth/2fa/reset-password', data).then(function () {
+        showToast('Senha redefinida com sucesso!', 'success');
+        self.navigate('login');
+      }).catch(function (err) {
+        var errEl = document.getElementById('auth-error');
+        if (errEl) {
+          errEl.textContent = err.message;
+          errEl.style.display = 'block';
+        }
       });
     };
   };
@@ -404,7 +502,16 @@ var App = /*#__PURE__*/function () {
     if (!body) return;
     body.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-    if (tab === 'drives') {
+    if (tab === 'security') {
+      API.get('/auth/me').then(function(u) {
+        self.user = u;
+        body.innerHTML = renderSecurityConfig(self.user);
+        self.bind2FAEvents();
+      }).catch(function() {
+        body.innerHTML = renderSecurityConfig(self.user);
+        self.bind2FAEvents();
+      });
+    } else if (tab === 'drives') {
       Promise.all([API.get('/admin/drives'), API.get('/admin/users')]).then(function (results) {
         var drives = results[0] || [];
         var users = results[1] || [];
@@ -1793,6 +1900,135 @@ var App = /*#__PURE__*/function () {
     });
   };
 
+  _proto.force2FASetup = function (tempToken) {
+    var self = this;
+    if (tempToken) API.setToken(tempToken);
+
+    var setupHtml = '<div class="auth-page"><div class="auth-card" style="max-width:450px">' +
+                 '<div class="logo">' +
+                   '<svg viewBox="0 0 24 24" fill="none" stroke="#60cdff" stroke-width="2" style="width:48px;height:48px;margin-bottom:10px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+                   '<h1>Segurança Obrigatória</h1>' +
+                   '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px">Como você é um usuário Admin/Master, precisa ativar a autenticação em duas etapas para continuar.</p>' +
+                 '</div>' +
+                 '<div id="setup-area-forced">' +
+                   '<div style="text-align:center;padding:40px"><div class="spinner"></div><p style="margin-top:10px">Gerando QR Code...</p></div>' +
+                 '</div>' +
+               '</div></div>';
+    
+    document.getElementById('app').innerHTML = setupHtml;
+
+    API.get('/auth/2fa/setup').then(function(res) {
+       var area = document.getElementById('setup-area-forced');
+       if (!area) return;
+       area.innerHTML = render2FASetup(res.qrCode, res.secret);
+       
+       var confirmBtn = area.querySelector('#btn-confirm-2fa');
+       var input = area.querySelector('#confirm-2fa-code');
+
+       if (confirmBtn && input) {
+         confirmBtn.onclick = function() {
+           var code = input.value.trim();
+           if (code.length !== 6) return showToast('Digite o código de 6 dígitos', 'error');
+
+           confirmBtn.disabled = true;
+           confirmBtn.textContent = 'Verificando...';
+
+           API.post('/auth/2fa/enable', { secret: res.secret, code: code }).then(function(res2) {
+              showToast('2FA Ativado com sucesso!', 'success');
+              if (res2.token) API.setToken(res2.token);
+              if (res2.user) self.user = res2.user;
+              
+              area.innerHTML = renderRecoveryCodes(res2.recoveryCodes);
+              var finishBtn = area.querySelector('button');
+              if (finishBtn) {
+                finishBtn.onclick = function() { self.navigate('desktop'); };
+              }
+           }).catch(function(err) {
+              showToast(err.message, 'error');
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'Verificar e Ativar';
+           });
+         };
+       }
+    }).catch(function(err) {
+       showToast('Erro ao carregar setup: ' + err.message, 'error');
+    });
+  };
+
+  _proto.bind2FAEvents = function () {
+    var self = this;
+    // Look for elements in the document since they could be in the modal or the admin page
+    var container = document.getElementById('config-body') || document.getElementById('config-overlay');
+    if (!container) return;
+
+    // Enable 2FA button
+    var btnSetup = container.querySelector('#btn-setup-2fa');
+    if (btnSetup) {
+      btnSetup.onclick = function() {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Carregando...';
+        
+        API.get('/auth/2fa/setup').then(function(res) {
+           var area = container.querySelector('#status-2fa-area');
+           if (!area) return;
+           area.innerHTML = render2FASetup(res.qrCode, res.secret);
+           
+           var confirmBtn = area.querySelector('#btn-confirm-2fa');
+           var input = area.querySelector('#confirm-2fa-code');
+
+           confirmBtn.onclick = function() {
+             var code = input.value.trim();
+             if (code.length !== 6) return showToast('Digite o código de 6 dígitos', 'error');
+             confirmBtn.disabled = true;
+             confirmBtn.textContent = 'Verificando...';
+
+             API.post('/auth/2fa/enable', { secret: res.secret, code: code }).then(function(res2) {
+                showToast('2FA Ativado!', 'success');
+                // Refresh user state
+                API.get('/auth/me').then(function(u) {
+                  self.user = u;
+                  self.loadConfigTab('security');
+                });
+             }).catch(function(err) {
+                showToast(err.message, 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Verificar e Ativar';
+             });
+           };
+        }).catch(function(err) {
+           showToast(err.message, 'error');
+           btn.disabled = false;
+           btn.textContent = 'Configurar Agora';
+        });
+      };
+    }
+
+    // Disable 2FA button
+    var btnDisable = container.querySelector('#btn-disable-2fa');
+    if (btnDisable) {
+      btnDisable.onclick = function() {
+        if (!confirm('Tem certeza que deseja desativar o 2FA? Sua conta ficará menos segura.')) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Desativando...';
+        
+        API.post('/auth/2fa/disable').then(function() {
+          showToast('2FA Desativado com sucesso', 'info');
+          // Refresh user state
+          API.get('/auth/me').then(function(u) {
+            self.user = u;
+            self.loadConfigTab('security');
+          });
+        }).catch(function(err) {
+          showToast(err.message, 'error');
+          btn.disabled = false;
+          btn.textContent = 'Desativar Autenticação 2FA';
+        });
+      };
+    }
+  };
+
   _proto.bindWallpaperEvents = function () {
     var self = this;
     var overlay = document.getElementById('wallpaper-overlay');
@@ -1809,10 +2045,10 @@ var App = /*#__PURE__*/function () {
         overlay.querySelectorAll('.wallpaper-tab').forEach(function (t) { t.classList.remove('active'); });
         this.classList.add('active');
         var target = this.getAttribute('data-tab');
-        var gallery = overlay.querySelector('#wallpaper-modal-gallery');
-        var upload = overlay.querySelector('#wallpaper-modal-upload');
-        if (gallery) gallery.style.display = target === 'gallery' ? 'block' : 'none';
-        if (upload) upload.style.display = target === 'upload' ? 'block' : 'none';
+        
+        overlay.querySelectorAll('.wallpaper-modal-content').forEach(function (c) { c.style.display = 'none'; });
+        var targetEl = overlay.querySelector('#wallpaper-modal-' + target);
+        if (targetEl) targetEl.style.display = 'block';
       };
     });
 

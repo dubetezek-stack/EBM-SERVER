@@ -8,7 +8,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 var DRIVE_COLORS = ['#0078d4', '#0fa36b', '#f44336', '#ff9800', '#9c27b0', '#00bcd4', '#e91e63', '#607d8b'];
 
 function renderConfigPanel() {
-  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="apps">Apps Instalados</button>' + '<button class="config-tab" data-tab="cameras">DVR LUXvision</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
+  return '<div class="config-overlay" id="config-overlay">' + '<div class="config-backdrop" id="config-close-backdrop"></div>' + '<div class="config-panel">' + '<div class="config-header">' + '<h2>' + Icons.settings + ' Configurações</h2>' + '<button class="btn-icon" id="config-close">' + Icons.close + '</button>' + '</div>' + '<div class="config-tabs">' + '<button class="config-tab active" data-tab="drives">Drives</button>' + '<button class="config-tab" data-tab="users">Usuários</button>' + '<button class="config-tab" data-tab="security">Segurança</button>' + '<button class="config-tab" data-tab="sessions">Conectados</button>' + '<button class="config-tab" data-tab="server">Servidor</button>' + '<button class="config-tab" data-tab="apps">Apps Instalados</button>' + '<button class="config-tab" data-tab="cameras">DVR LUXvision</button>' + '<button class="config-tab" data-tab="logs">Logs</button>' + '</div>' + '<div class="config-body" id="config-body">' + '<div class="loading"><div class="spinner"></div></div>' + '</div>' + '</div>' + '</div>';
 }
 
 function renderDrivesConfig(drives, users, currentUserIsAdmin) {
@@ -127,14 +127,11 @@ function renderUsersConfig(users) {
   var isAdmin = role === 'admin';
 
   users.forEach(function (u, index) {
-    // SECURITY: Master users NEVER see Admins in the list (double-layer protection)
     if (role === 'master' && u.role === 'admin') return;
 
     var colIndex = index % 3;
     var badgeClass = u.role === 'admin' ? 'badge-admin' : u.role === 'master' ? 'badge-master' : 'badge-user';
     var badgeLabel = u.role === 'admin' ? 'Admin' : u.role === 'master' ? 'Master' : 'Usuário';
-
-    // Master can edit anyone EXCEPT Admins and themselves
     var canEdit = isAdmin || (role === 'master' && u.role !== 'admin' && u.id !== window.app.user.id);
 
     var cardHtml = '<div class="config-card user-cfg-card" data-user-id="' + u.id + '">' +
@@ -169,7 +166,6 @@ function renderUsersConfig(users) {
     cols[colIndex] += cardHtml;
   });
 
-  // Add User Card
   var nextCol = users.length % 3;
   cols[nextCol] += '<div class="config-card add-user-card" id="btn-add-user-card" style="border: 2px dashed var(--border); background: transparent; align-items: center; justify-content: center; opacity: 0.6; min-height: 110px">' +
     '<div class="config-card-icon" style="background:transparent; color:var(--text-muted)">' + Icons.add + '</div>' +
@@ -182,7 +178,6 @@ function renderUsersConfig(users) {
     '<div class="config-column">' + cols[2] + '</div>' +
     '</div>';
 
-  // Add User Modal
   html += '<div id="new-user-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center">' +
     '<div class="config-panel" style="width:90%; max-width:500px; max-height:90vh; overflow-y:auto; position:relative; border-radius:24px; background:var(--bg-surface)">' +
     '<div class="config-header" style="border-bottom:1px solid var(--border); padding:20px 24px"><h2>' + Icons.add + ' Novo Usuário</h2><button class="btn-icon" id="close-new-user-modal">' + Icons.close + '</button></div>' +
@@ -223,6 +218,36 @@ function renderSessionsConfig(sessions) {
   return html;
 }
 
+function renderSecurityConfig(user) {
+  var is2FA = user && !!user.twoFactorEnabled;
+  
+  return '<div class="config-card" style="max-width:500px; margin:0 auto">' +
+            '<div class="config-card-header">' +
+              '<div class="config-card-icon" style="background:rgba(96,205,255,0.1); color:var(--accent-blue)">' + Icons.shield + '</div>' +
+              '<div class="config-card-info">' +
+                '<div class="config-card-name">Autenticação em Duas Etapas (2FA)</div>' +
+                '<div class="config-card-detail">Proteja sua conta com o Google Authenticator</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="config-card-body" id="status-2fa-area" style="padding:24px">' +
+               (is2FA ? 
+                 '<div style="text-align:center">' +
+                   '<div style="color:var(--accent-blue);font-size:48px;margin-bottom:12px;display:flex;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:64px;height:64px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>' +
+                   '<h4 style="margin-bottom:8px">2FA Ativado</h4>' +
+                   '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:20px">Sua conta está protegida com autenticação em duas etapas.</p>' +
+                   '<button class="btn btn-danger" id="btn-disable-2fa" style="width:100%;background:#ff5252;color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer">Desativar Autenticação 2FA</button>' +
+                 '</div>' :
+                 '<div style="text-align:center">' +
+                   '<div style="color:var(--text-secondary);font-size:48px;margin-bottom:12px;display:flex;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:64px;height:64px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>' +
+                   '<h4 style="margin-bottom:8px">Ativar 2FA</h4>' +
+                   '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:20px">Adicione uma camada extra de segurança usando o Google Authenticator.</p>' +
+                   '<button class="btn btn-primary" id="btn-setup-2fa" style="width:100%;background:var(--accent-blue);color:white;border:none;padding:12px;border-radius:8px;font-weight:600;cursor:pointer">Configurar Agora</button>' +
+                 '</div>'
+               ) +
+            '</div>' +
+         '</div>';
+}
+
 function renderServerConfig(serverConfig) {
   var dnsHtml = '';
   var records = serverConfig.dnsRecords || [];
@@ -231,7 +256,7 @@ function renderServerConfig(serverConfig) {
     var ipMatch = r.lastIp && r.lastDnsIp && r.lastIp === r.lastDnsIp;
     var isOk = r.lastStatus === 'OK';
 
-    var statusColor = '#ffb142'; // Pending/Syncing (Orange)
+    var statusColor = '#ffb142';
     var statusText = 'Sincronizando...';
 
     if (!r.enabled) {
@@ -270,6 +295,7 @@ function renderServerConfig(serverConfig) {
       '</div>' +
       '</div>';
   }
+  
   if (!records.length) {
     dnsHtml = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nenhum domínio DuckDNS configurado</div>';
   }
@@ -298,7 +324,6 @@ function renderServerConfig(serverConfig) {
     '</div>' +
 
     '<div style="background:var(--bg-secondary);padding:12px;border-radius:8px;margin-bottom:16px;border:1px solid var(--border)">' +
-    // Update row
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
     '<div style="display:flex;align-items:center;gap:10px">' +
     '<label class="switch"><input type="checkbox" id="cfg-dns-auto" ' + autoRefreshChecked + '><span class="slider"></span></label>' +
@@ -315,7 +340,6 @@ function renderServerConfig(serverConfig) {
     '<input type="number" id="cfg-dns-interval" class="form-input" style="width:60px;padding:4px 8px;background:var(--bg-primary)" value="' + (serverConfig.dnsInterval || 5) + '" min="1">' +
     '</div>' +
     '</div>' +
-    // Check row
     '<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">' +
     '<div style="display:flex;align-items:center;gap:8px">' +
     '<div>' +
@@ -464,6 +488,46 @@ function renderAppsConfig(apps, isAdmin) {
     '<div class="config-column">' + cols[1] + '</div>' +
     '<div class="config-column">' + cols[2] + '</div>' +
     '</div>';
+}
+
+function renderSecurityConfig(user) {
+  var isEnabled = user && user.twoFactorEnabled;
+  var statusText = isEnabled ? 'Ativado' : 'Desativado';
+  var statusColor = isEnabled ? 'var(--accent-green)' : 'var(--text-secondary)';
+  
+  return '<div class="config-columns">' +
+           '<div class="config-column">' +
+             '<div class="config-card active" id="card-2fa" style="cursor:default">' +
+               '<div class="card-header">' +
+                 '<div class="card-icon" style="color:var(--accent-blue)">' + Icons.shield + '</div>' +
+                 '<div class="card-title-group">' +
+                   '<div class="card-title">Autenticação em Duas Etapas (2FA)</div>' +
+                   '<div class="card-subtitle">Proteja sua conta com o Google Authenticator</div>' +
+                 '</div>' +
+               '</div>' +
+               '<div class="card-content" style="display:block; padding:20px">' +
+                 '<div id="status-2fa-area">' +
+                   '<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; background:rgba(255,255,255,0.03); padding:15px; border-radius:10px; border:1px solid var(--border)">' +
+                     '<div style="width:10px; height:10px; border-radius:50%; background:' + statusColor + '"></div>' +
+                     '<div style="flex:1">' +
+                       '<div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em">Status Atual</div>' +
+                       '<div style="font-size:14px; font-weight:600; color:#fff">' + statusText + '</div>' +
+                     '</div>' +
+                     (isEnabled ? 
+                       '<button class="btn btn-secondary btn-sm" id="btn-disable-2fa" style="color:var(--danger); border-color:rgba(211,47,47,0.2)">Desativar</button>' :
+                       '<button class="btn btn-primary btn-sm" id="btn-setup-2fa">Configurar Agora</button>'
+                     ) +
+                   '</div>' +
+                   '<p style="font-size:12px; color:var(--text-secondary); line-height:1.6">' +
+                     'O 2FA adiciona uma camada extra de segurança. Além da sua senha, você precisará de um código gerado pelo seu celular para entrar.' +
+                   '</p>' +
+                 '</div>' +
+               '</div>' +
+             '</div>' +
+           '</div>' +
+           '<div class="config-column"></div>' +
+           '<div class="config-column"></div>' +
+         '</div>';
 }
 
 function getTimeDiff(dateStr) {
