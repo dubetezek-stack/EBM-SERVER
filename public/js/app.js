@@ -306,6 +306,7 @@ var App = /*#__PURE__*/function () {
       else if (appId === 'settings') self.navigate('admin');
       else if (appId === 'plex') window.open('http://' + window.location.hostname + ':32400', '_blank');
       else if (appId === 'homeassistant') window.open('http://' + window.location.hostname + ':8123', '_blank');
+      else if (appId === 'jellyfin') window.open('http://' + window.location.hostname + ':8096', '_blank');
       else if (appId) self.navigate(appId);
     });
 
