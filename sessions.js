@@ -24,7 +24,7 @@ function saveSessions() {
   try {
     const data = Object.fromEntries(sessions);
     fs.writeFileSync(SESSIONS_PATH, JSON.stringify(data, null, 2));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function getSessionId(token) {
@@ -34,7 +34,7 @@ function getSessionId(token) {
 function addSession(token, data) {
   const id = getSessionId(token);
   if (!id) return;
-  
+
   let mac = 'N/A';
   try {
     if (data.ip && data.ip !== '127.0.0.1' && data.ip !== '::1') {
@@ -43,7 +43,7 @@ function addSession(token, data) {
       const match = result.match(/([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}/);
       if (match) mac = match[0].toUpperCase();
     }
-  } catch (e) {}
+  } catch (e) { }
 
   sessions.set(id, {
     sessionId: id,

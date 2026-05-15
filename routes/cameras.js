@@ -27,7 +27,7 @@ function initCameraWS(server) {
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, 'http://localhost');
     const token = url.searchParams.get('token');
-    
+
     // Verify token and role
     try {
       const jwt = require('jsonwebtoken');
@@ -35,7 +35,7 @@ function initCameraWS(server) {
       const config = getConfig();
       const decoded = jwt.verify(token, config.jwtSecret);
       const user = getUsers().find(u => u.id === decoded.id);
-      
+
       if (!user) {
         ws.send(JSON.stringify({ error: 'Acesso negado' }));
         ws.close();
@@ -46,7 +46,7 @@ function initCameraWS(server) {
       const appsConfigPath = path.join(DATA_DIR, 'apps.json');
       const appsConfig = readJSON(appsConfigPath);
       const camPerm = appsConfig?.permissions?.cameras;
-      
+
       let hasAccess = false;
       if (user.role === 'admin') {
         hasAccess = true;
@@ -94,7 +94,7 @@ function initCameraWS(server) {
       const channel = url.searchParams.get('channel') || '1';
       const ch = channel.padStart(2, '0');
       const rtspUrl = `rtsp://${cam.user}:${cam.pass}@${cam.ip}:${cam.rtspPort || 554}/ch${ch}/1`;
-      
+
       console.log(`[GRADE] Canal ${channel} conectado`);
 
       const ffmpegParams = [

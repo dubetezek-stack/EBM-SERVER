@@ -29,7 +29,7 @@ router.get('/weather', (req, res) => {
         if (weather.current_condition && weather.current_condition[0]) {
           const cond = weather.current_condition[0];
           const area = weather.nearest_area ? weather.nearest_area[0] : null;
-          res.json({ 
+          res.json({
             temp: cond.temp_C,
             desc: cond.lang_pt ? cond.lang_pt[0].value : cond.weatherDesc[0].value,
             city: area ? area.areaName[0].value : 'Local'
@@ -57,18 +57,18 @@ const canMasterManage = (user) => {
 router.get('/drives', (req, res) => {
   const config = readJSON(configPath) || { drives: [] };
   const user = req.user;
-  
+
   if (user.role === 'admin') {
     return res.json(config.drives || []);
   }
-  
+
   // Filter for Masters: only drives where byUser[id].manage === true OR byRole[role].manage === true
   const drives = (config.drives || []).filter(d => {
     if (d.permissions?.byUser?.[user.id]?.manage === true) return true;
     if (d.permissions?.[user.role]?.manage === true) return true;
     return false;
   });
-  
+
   res.json(drives);
 });
 
@@ -88,7 +88,7 @@ router.post('/drives', requireMaster, (req, res) => {
     name,
     path: drivePath,
     color: color || '#0078d4',
-    permissions: permissions || { 
+    permissions: permissions || {
       master: { read: true, upload: true, delete: true },
       user: { read: true, upload: false, delete: false },
       byUser: {}
@@ -129,7 +129,7 @@ router.put('/drives/:id', requireMaster, (req, res) => {
   if (name) config.drives[idx].name = name;
   if (drivePath) config.drives[idx].path = drivePath;
   if (color) config.drives[idx].color = color;
-  
+
   if (permissions) {
     // Only Admin can change group permissions
     if (req.user.role === 'admin') {
@@ -138,22 +138,22 @@ router.put('/drives/:id', requireMaster, (req, res) => {
       // Master can only change individual user permissions (byUser)
       // AND cannot change the 'manage' permission
       if (!config.drives[idx].permissions) {
-        config.drives[idx].permissions = { 
-          master: { read: true, upload: true, delete: true }, 
-          user: { read: true, upload: false, delete: false }, 
-          byUser: {} 
+        config.drives[idx].permissions = {
+          master: { read: true, upload: true, delete: true },
+          user: { read: true, upload: false, delete: false },
+          byUser: {}
         };
       }
-      
+
       const oldByUser = config.drives[idx].permissions.byUser || {};
       const newByUser = permissions.byUser || {};
-      
+
       // Merge, preserving the 'manage' flag from the current config
       for (const uid in newByUser) {
         const oldManage = oldByUser[uid] ? !!oldByUser[uid].manage : false;
         newByUser[uid].manage = oldManage;
       }
-      
+
       config.drives[idx].permissions.byUser = newByUser;
     }
   }
@@ -196,7 +196,7 @@ router.get('/browse/drives', requireMaster, (req, res) => {
     const output = execSync(command).toString();
     const data = JSON.parse(output);
     const drives = Array.isArray(data) ? data : [data];
-    
+
     const result = drives.map(d => ({
       name: d.Description || `Disco (${d.Name}:)`,
       path: `${d.Name}:\\`,
@@ -204,7 +204,7 @@ router.get('/browse/drives', requireMaster, (req, res) => {
       total: d.Total || 0,
       isNetwork: false
     }));
-    
+
     res.json(result);
   } catch (err) {
     const drives = [];
@@ -214,7 +214,7 @@ router.get('/browse/drives', requireMaster, (req, res) => {
         if (fs.existsSync(letter)) {
           drives.push({ name: `Disco (${letter})`, path: letter + '\\', free: 0, total: 0 });
         }
-      } catch(e) {}
+      } catch (e) { }
     }
     res.json(drives);
   }
@@ -242,7 +242,7 @@ router.get('/browse/path', requireMaster, (req, res) => {
   try {
     const files = fs.readdirSync(folderPath, { withFileTypes: true });
     const folders = [];
-    
+
     for (const f of files) {
       if (f.isDirectory()) {
         try {
@@ -259,7 +259,7 @@ router.get('/browse/path', requireMaster, (req, res) => {
         }
       }
     }
-    
+
     folders.sort((a, b) => a.name.localeCompare(b.name));
     res.json(folders);
   } catch (err) {
@@ -271,7 +271,7 @@ router.get('/browse/path', requireMaster, (req, res) => {
 
 router.get('/users', requireMaster, (req, res) => {
   const users = readJSON(usersPath) || [];
-  
+
   // Master users cannot see Admin users
   let filteredUsers = users;
   if (req.user.role === 'master') {
@@ -371,7 +371,7 @@ router.delete('/users/:id', requireMaster, (req, res) => {
 
   const users = readJSON(usersPath) || [];
   const targetUser = users.find(u => u.id === req.params.id);
-  
+
   if (!targetUser) {
     return res.status(404).json({ error: 'Usuário não encontrado' });
   }
@@ -442,12 +442,12 @@ router.put('/server', requireAdmin, (req, res) => {
   if (dnsCheckInterval !== undefined) config.dnsCheckInterval = parseInt(dnsCheckInterval);
   if (req.body.camera) config.camera = req.body.camera;
   writeJSON(configPath, config);
-  
+
   // Re-initialize DNS service
   try {
     const { initDDNS } = require('../ddns');
     initDDNS();
-  } catch(e) {}
+  } catch (e) { }
 
   res.json({
     port: config.port || 3000,
@@ -467,14 +467,14 @@ router.post('/server/ddns/test', requireAdmin, async (req, res) => {
   try {
     const { updateDDNS } = require('../ddns');
     const config = readJSON(configPath) || {};
-    
+
     if (index !== undefined) {
       // Test only one record
       const records = config.dnsRecords || [];
       const record = records[index];
       if (!record) return res.status(404).json({ error: 'Registro não encontrado' });
       if (!record.enabled) return res.status(400).json({ error: 'Ative o domínio primeiro para atualizar' });
-      
+
       const { updateDDNS: updateSingle } = require('../ddns');
       // We pass a fake config with only one record and force=true
       const result = await updateSingle({ dnsRecords: [record] }, true);
@@ -502,7 +502,7 @@ router.get('/stats', (req, res) => {
   const totalMem = os.totalmem();
   const freeMem = os.freemem();
   const usedMem = totalMem - freeMem;
-  
+
   // CPU usage on Windows
   let cpuUsage = 0;
   try {
@@ -520,14 +520,14 @@ router.get('/stats', (req, res) => {
     const netOutput = execSync(netCmd).toString();
     const data = JSON.parse(netOutput);
     const adapters = Array.isArray(data) ? data : [data];
-    
+
     let currentIn = 0;
     let currentOut = 0;
     adapters.forEach(a => {
       currentIn += a.ReceivedBytes || 0;
       currentOut += a.SentBytes || 0;
     });
-    
+
     const now = Date.now();
     if (prevNetStats) {
       const timeDiff = Math.max((now - prevNetTime) / 1000, 1);
@@ -536,7 +536,7 @@ router.get('/stats', (req, res) => {
     }
     prevNetStats = { in: currentIn, out: currentOut };
     prevNetTime = now;
-  } catch(e) {}
+  } catch (e) { }
 
   res.json({
     cpu: cpuUsage,
@@ -567,6 +567,71 @@ router.post('/server/restart', requireAdmin, (req, res) => {
 });
 
 // === STARTUP CONTROL ===
+router.post('/server/update', requireAdmin, async (req, res) => {
+  try {
+    const { execSync } = require('child_process');
+    if (global.addLog) global.addLog('INFO', 'Iniciando atualização do sistema...', req.ip);
+    
+    // 1. Identify Remote
+    let remote = 'origin';
+    try {
+      const remotes = execSync('git remote').toString().trim().split('\n');
+      if (remotes.includes('EBM-SERVER')) remote = 'EBM-SERVER';
+      else if (remotes.includes('origin')) remote = 'origin';
+      else if (remotes.length > 0) remote = remotes[0].trim();
+    } catch (e) {}
+
+    // 2. Fetch all from remote to be sure
+    if (global.addLog) global.addLog('INFO', `Sincronizando com remoto ${remote}...`, req.ip);
+    execSync(`git fetch ${remote}`, { stdio: 'inherit' });
+
+    // 3. Determine target branch (master or main)
+    let targetBranch = 'master';
+    let remoteRef = `${remote}/master`;
+    try {
+      execSync(`git rev-parse ${remote}/master`, { stdio: 'ignore' });
+    } catch (e) {
+      try {
+        execSync(`git rev-parse ${remote}/main`, { stdio: 'ignore' });
+        targetBranch = 'main';
+        remoteRef = `${remote}/main`;
+      } catch (e2) {
+        throw new Error(`Não foi possível localizar branch master ou main no remoto ${remote}`);
+      }
+    }
+
+    // 4. Ensure we are on the target branch
+    const currentBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    if (currentBranch !== targetBranch) {
+      if (global.addLog) global.addLog('INFO', `Mudando para branch ${targetBranch}...`, req.ip);
+      execSync(`git checkout -f ${targetBranch}`, { stdio: 'inherit' });
+    }
+
+    // 5. Compare commits
+    const localCommit = execSync('git rev-parse HEAD').toString().trim();
+    const remoteCommit = execSync(`git rev-parse ${remoteRef}`).toString().trim();
+    
+    if (localCommit === remoteCommit) {
+      if (global.addLog) global.addLog('INFO', `Sistema já está na última versão do ${targetBranch}.`, req.ip);
+      return res.json({ success: true, message: 'O sistema já está na última versão.', updated: false });
+    }
+
+    // 6. Reset to latest commit
+    if (global.addLog) global.addLog('INFO', `Atualizando para commit ${remoteCommit.substring(0,7)}...`, req.ip);
+    execSync(`git reset --hard ${remoteRef}`, { stdio: 'inherit' });
+    
+    if (global.addLog) global.addLog('INFO', 'Sistema atualizado com sucesso. Reiniciando...', req.ip);
+    
+    res.json({ success: true, message: `Atualizado para ${targetBranch} (${remoteCommit.substring(0,7)}). Reiniciando...`, updated: true });
+    
+    // 7. Restart
+    setTimeout(() => { process.exit(99); }, 1000);
+  } catch (err) {
+    if (global.addLog) global.addLog('ERROR', 'Falha na atualização: ' + err.message, req.ip);
+    res.status(500).json({ error: 'Erro ao atualizar: ' + err.message });
+  }
+});
+
 router.get('/server/startup', requireAdmin, (req, res) => {
   try {
     const { execSync } = require('child_process');
@@ -583,14 +648,14 @@ router.get('/server/startup', requireAdmin, (req, res) => {
 router.post('/server/startup', requireAdmin, (req, res) => {
   const { enabled } = req.body;
   const { execSync } = require('child_process');
-  
+
   const projectRoot = path.resolve(__dirname, '..');
   const runnerBatPath = path.join(projectRoot, 'run_at_boot.bat');
   const startupPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'EBMSERVER.lnk');
 
   // Always try to remove the old shortcut if it exists
   if (fs.existsSync(startupPath)) {
-    try { fs.unlinkSync(startupPath); } catch(e) {}
+    try { fs.unlinkSync(startupPath); } catch (e) { }
   }
 
   if (enabled) {
@@ -598,16 +663,16 @@ router.post('/server/startup', requireAdmin, (req, res) => {
       // Create a runner batch file that sets the environment and starts the server
       const runnerContent = `@echo off\r\nset EBMSERVER_DATA_DIR=${DATA_DIR}\r\nset EBMSERVER_TASK=1\r\ncd /d "${projectRoot}"\r\ncall start.bat`;
       fs.writeFileSync(runnerBatPath, runnerContent);
-      
+
       // Create a temporary batch file to perform the registration with elevation
       const setupBatPath = path.join(os.tmpdir(), 'setup_ebm_task.bat');
       // Simple quoting for the batch file
       const taskCmd = `@echo off\r\nschtasks /create /tn EBMSERVER /tr "${runnerBatPath}" /sc onstart /ru SYSTEM /rl HIGHEST /f`;
       fs.writeFileSync(setupBatPath, taskCmd);
-      
+
       const psCommand = `powershell -Command "Start-Process '${setupBatPath}' -Verb RunAs -Wait"`;
       execSync(psCommand);
-      
+
       // Check if it actually worked
       try {
         execSync('schtasks /query /tn EBMSERVER', { stdio: 'ignore' });
