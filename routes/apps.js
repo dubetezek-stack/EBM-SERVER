@@ -342,4 +342,99 @@ router.post('/uninstall/:id', (req, res) => {
   res.json({ success: true, appId });
 });
 
+// Secure Browser Proxy to bypass X-Frame-Options and inject Translator
+router.get('/browser-proxy', (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send('URL missing');
+
+  try {
+    const url = new URL(targetUrl);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return res.status(403).send('Protocol blocked');
+
+    const protocol = url.protocol === 'https:' ? require('https') : require('http');
+    
+    const proxyReq = protocol.get(targetUrl, (proxyRes) => {
+      const contentType = proxyRes.headers['content-type'] || '';
+      const headers = { ...proxyRes.headers };
+      
+      delete headers['x-frame-options'];
+      delete headers['content-security-policy'];
+      delete headers['content-security-policy-report-only'];
+      headers['access-control-allow-origin'] = req.headers.origin || '*';
+      headers['access-control-allow-credentials'] = 'true';
+
+      if (contentType.includes('text/html')) {
+        let chunks = [];
+        proxyRes.on('data', chunk => chunks.push(chunk));
+        proxyRes.on('end', () => {
+          let body = Buffer.concat(chunks).toString('utf8');
+          
+          // Chrome-Style Translation Bar Injection
+          const chromeInjection = `
+            <base href="${url.origin}${url.pathname}">
+            <style>
+              #ebm-chrome-bar { 
+                position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
+                background: #f1f3f4; border-bottom: 1px solid #dadce0; 
+                height: 40px; display: flex; align-items: center; padding: 0 15px;
+                font-family: 'Segoe UI', Tahoma, sans-serif; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              body { margin-top: 40px !important; }
+              .goog-te-banner-frame.skiptranslate { display: none !important; } 
+              .goog-te-gadget { font-family: inherit !important; font-size: 13px !important; color: #3c4043 !important; }
+              .goog-te-gadget-simple { background-color: transparent !important; border: none !important; }
+            </style>
+            <div id="ebm-chrome-bar">
+              <div id="google_translate_element"></div>
+            </div>
+            <script type="text/javascript">
+              function googleTranslateElementInit() {
+                new google.translate.TranslateElement({
+                  pageLanguage: 'auto', 
+                  includedLanguages: 'pt,en,zh-CN',
+                  layout: google.translate.TranslateElement.InlineLayout.HORIZONTAL,
+                  autoDisplay: true
+                }, 'google_translate_element');
+                
+                // Auto-trigger logic
+                var timer = setInterval(function() {
+                  var select = document.querySelector('#google_translate_element select');
+                  if (select) {
+                    select.value = 'pt';
+                    select.dispatchEvent(new Event('change'));
+                    clearInterval(timer);
+                  }
+                }, 500);
+              }
+            </script>
+            <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+          `;
+          
+          // Inject at the very beginning of the body
+          if (body.includes('<body>')) {
+            body = body.replace('<body>', '<body>' + chromeInjection);
+          } else if (body.includes('<head>')) {
+             body = body.replace('</head>', '</head><body>' + chromeInjection);
+          } else {
+             body = '<body>' + chromeInjection + body + '</body>';
+          }
+          
+          if (headers['content-length']) headers['content-length'] = Buffer.byteLength(body);
+          res.writeHead(proxyRes.statusCode, headers);
+          res.end(body);
+        });
+      } else {
+        res.writeHead(proxyRes.statusCode, headers);
+        proxyRes.pipe(res);
+      }
+    });
+
+    proxyReq.on('error', (err) => {
+      res.status(500).send('Proxy Error: ' + err.message);
+    });
+  } catch (err) {
+    res.status(400).send('Invalid URL');
+  }
+});
+
 module.exports = router;

@@ -1342,23 +1342,64 @@ var App = /*#__PURE__*/function () {
     var btnBack = document.getElementById('browser-back');
     var btnForward = document.getElementById('browser-forward');
     var btnRefresh = document.getElementById('browser-refresh');
+    var btnHome = document.getElementById('browser-home');
+    var overlay = document.getElementById('browser-error-overlay');
+    var btnProxy = document.getElementById('browser-btn-proxy');
+
+    var btnTranslate = document.getElementById('browser-translate');
 
     if (!iframe || !input) return;
 
     function navigateTo(url) {
+      if (overlay) overlay.style.display = 'none';
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        if (url.indexOf('.') > -1) {
-          url = 'https://' + url;
+        if (url.indexOf('.') > -1 && url.indexOf(' ') === -1) {
+          url = 'http://' + url;
         } else {
-          url = 'https://www.google.com/search?q=' + encodeURIComponent(url) + '&igu=1';
+          url = 'http://www.google.com/search?q=' + encodeURIComponent(url) + '&igu=1';
         }
       }
+
+      var isLocal = url.includes('192.168.') || url.includes('10.') || url.includes('172.16.') || url.includes('172.31.') || url.includes('127.0.0.1') || url.includes('localhost');
+
+      // Detect Chinese sites and force auto-translation (only for public sites)
+      var isChinese = url.includes('.cn') || url.includes('baidu.com') || url.includes('alibaba.com') || url.includes('taobao.com') || url.includes('aliexpress.com');
+      if (isChinese && !isLocal && !url.includes('translate.google.com')) {
+        showToast('Site chinês detectado! Traduzindo automaticamente para Português...');
+        url = 'https://translate.google.com/translate?sl=zh-CN&tl=pt&u=' + encodeURIComponent(url);
+      }
+
       input.value = url;
       iframe.src = url;
     }
 
     input.onkeydown = function (e) {
       if (e.key === 'Enter') navigateTo(input.value);
+    };
+
+    if (btnTranslate) btnTranslate.onclick = function() {
+       var currentUrl = input.value;
+       if (!currentUrl || currentUrl.includes('about:blank')) return;
+       
+       var isLocal = currentUrl.includes('192.168.') || currentUrl.includes('10.') || currentUrl.includes('127.0.0.1') || currentUrl.includes('localhost');
+       if (isLocal) {
+         showToast('Endereço local detectado. Ativando Tradução Local...', 'info');
+         var proxyUrl = '/api/apps/browser-proxy?url=' + encodeURIComponent(currentUrl) + '&token=' + API.token;
+         iframe.src = proxyUrl;
+         return;
+       }
+
+       // If already translated, extract original URL
+       if (currentUrl.includes('translate.google.com')) {
+         try {
+           var urlParams = new URLSearchParams(currentUrl.split('?')[1]);
+           currentUrl = urlParams.get('u') || currentUrl;
+         } catch(e) {}
+       }
+       
+       showToast('Traduzindo para Português...');
+       var translateUrl = 'https://translate.google.com/translate?sl=auto&tl=pt&u=' + encodeURIComponent(currentUrl);
+       iframe.src = translateUrl;
     };
 
     if (btnGo) btnGo.onclick = function () {
@@ -1369,12 +1410,24 @@ var App = /*#__PURE__*/function () {
       iframe.src = iframe.src;
     };
 
+    if (btnHome) btnHome.onclick = function () {
+      navigateTo('http://www.google.com/search?igu=1');
+    };
+
     if (btnBack) btnBack.onclick = function () {
       try { iframe.contentWindow.history.back(); } catch (e) { console.warn('CORS restricted history.back()'); }
     };
 
     if (btnForward) btnForward.onclick = function () {
       try { iframe.contentWindow.history.forward(); } catch (e) { console.warn('CORS restricted history.forward()'); }
+    };
+
+    if (btnProxy) btnProxy.onclick = function() {
+       var currentUrl = input.value;
+       if (!currentUrl) return;
+       showToast('Iniciando modo de compatibilidade...');
+       var proxyUrl = '/api/apps/browser-proxy?url=' + encodeURIComponent(currentUrl) + '&token=' + API.token;
+       iframe.src = proxyUrl;
     };
   };
 

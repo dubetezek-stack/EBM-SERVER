@@ -698,23 +698,61 @@ function renderForcedPasswordChange(user) {
 }
 
 function renderBrowserView() {
-  return '<div class="app-page-view" style="height:100%; display:flex; flex-direction:column; background:#111">' +
-           '<div class="app-page-header browser-toolbar" style="background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; flex-shrink:0; height:48px">' +
-             '<div style="display:flex; align-items:center; gap:4px">' +
-               '<button class="btn-icon btn-sm" id="browser-back" title="Voltar">' + Icons.back + '</button>' +
-               '<button class="btn-icon btn-sm" id="browser-forward" title="Avançar">' + Icons.forward + '</button>' +
-               '<button class="btn-icon btn-sm" id="browser-refresh" title="Recarregar">' + Icons.refresh + '</button>' +
-             '</div>' +
-             '<div class="browser-address-bar" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:20px; padding:4px 16px; display:flex; align-items:center; gap:8px">' +
-               '<div style="color:var(--text-secondary); font-size:12px">' + Icons.browser + '</div>' +
-               '<input type="text" id="browser-url" value="https://www.google.com/search?igu=1" style="flex:1; background:transparent; border:none; color:#fff; font-size:13px; outline:none" placeholder="Digite uma URL ou pesquise...">' +
-             '</div>' +
-             '<div style="display:flex; align-items:center; gap:8px">' +
-               '<button class="btn btn-primary btn-sm" id="browser-go" style="padding:4px 16px; border-radius:15px; font-size:12px">Ir</button>' +
-             '</div>' +
-           '</div>' +
-           '<div class="app-page-content" style="flex:1; position:relative; overflow:hidden; background:#fff">' +
-             '<iframe id="browser-iframe" src="https://www.google.com/search?igu=1" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; background:#fff" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
-           '</div>' +
-         '</div>';
+  return '<div class="app-page-view browser-app" style="display:flex; flex-direction:column; height:100%; background:#1e1e1e; color:#fff; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif">' +
+    // Tabs Header
+    '<div class="browser-tabs" style="background:#000; padding:8px 10px 0; display:flex; align-items:flex-end; gap:4px; height:40px">' +
+      '<div class="browser-tab active" style="background:#1e1e1e; padding:8px 16px; border-radius:8px 8px 0 0; display:flex; align-items:center; gap:8px; min-width:180px; font-size:12px; cursor:default; border:1px solid rgba(255,255,255,0.05); border-bottom:none">' +
+        '<div style="color:#4285f4; display:flex; scale:0.8">' + Icons.browser + '</div>' +
+        '<span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Google</span>' +
+        '<div style="opacity:0.6; cursor:pointer; font-size:16px">×</div>' +
+      '</div>' +
+      '<div class="browser-new-tab" style="padding:6px; margin-bottom:4px; border-radius:50%; display:flex; cursor:pointer; color:#aaa; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.plus + '</div>' +
+    '</div>' +
+    
+    // Toolbar
+    '<div class="browser-toolbar" style="background:#1e1e1e; padding:8px 12px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.1)">' +
+      '<div style="display:flex; gap:4px">' +
+        '<button id="browser-back" class="btn-icon" style="background:none; border:none; color:#fff; cursor:pointer; opacity:0.6; padding:6px; border-radius:50%; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.back + '</button>' +
+        '<button id="browser-forward" class="btn-icon" style="background:none; border:none; color:#fff; cursor:pointer; opacity:0.6; padding:6px; border-radius:50%; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.forward + '</button>' +
+        '<button id="browser-refresh" class="btn-icon" style="background:none; border:none; color:#fff; cursor:pointer; padding:6px; border-radius:50%; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.refresh + '</button>' +
+        '<button id="browser-home" class="btn-icon" style="background:none; border:none; color:#fff; cursor:pointer; padding:6px; border-radius:50%; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.home + '</button>' +
+      '</div>' +
+      
+      // Omnibox
+      '<div class="browser-omnibox" style="flex:1; background:#2a2a2a; border-radius:20px; display:flex; align-items:center; padding:0 12px; height:34px; border:1px solid transparent; transition:border 0.2s">' +
+        '<div style="color:#0f9d58; margin-right:8px; display:flex; scale:0.8" title="Conexão Segura">' + Icons.lock + '</div>' +
+        '<input id="browser-url" type="text" value="http://www.google.com/search?igu=1" style="flex:1; background:none; border:none; color:#fff; outline:none; font-size:13px" spellcheck="false">' +
+        '<div style="color:#aaa; cursor:pointer; display:flex; scale:0.9" class="btn-star">' + Icons.star + '</div>' +
+      '</div>' +
+      
+      '<div style="display:flex; gap:4px; align-items:center">' +
+        '<button id="browser-translate" class="btn-icon" style="background:none; border:none; color:#aaa; cursor:pointer; padding:6px; border-radius:50%; transition:all 0.2s; display:flex" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'; this.style.color=\'#fff\'" onmouseout="this.style.background=\'transparent\'; this.style.color=\'#aaa\'" title="Traduzir para Português">' + Icons.translate + '</button>' +
+        '<button id="browser-go" style="background:#4285f4; border:none; color:#fff; padding:0 18px; border-radius:17px; font-size:12px; font-weight:600; cursor:pointer; height:34px; transition:filter 0.2s" onmouseover="this.style.filter=\'brightness(1.1)\'" onmouseout="this.style.filter=\'brightness(1)\'">Ir</button>' +
+        '<button class="btn-icon" style="background:none; border:none; color:#fff; cursor:pointer; padding:6px; border-radius:50%; transition:background 0.2s" onmouseover="this.style.background=\'rgba(255,255,255,0.1)\'" onmouseout="this.style.background=\'transparent\'">' + Icons.more + '</button>' +
+      '</div>' +
+    '</div>' +
+    
+    // Bookmarks Bar
+    '<div class="browser-bookmarks" style="background:#1e1e1e; padding:4px 12px; display:flex; gap:16px; border-bottom:1px solid rgba(255,255,255,0.1); font-size:12px; color:#aaa">' +
+      '<div style="display:flex; align-items:center; gap:4px; cursor:pointer" onclick="document.getElementById(\'browser-url\').value=\'https://www.google.com/search?igu=1\'; document.getElementById(\'browser-go\').click()"><img src="https://www.google.com/favicon.ico" style="width:14px; height:14px"> Google</div>' +
+      '<div style="display:flex; align-items:center; gap:4px; cursor:pointer" onclick="document.getElementById(\'browser-url\').value=\'https://www.bing.com\'; document.getElementById(\'browser-go\').click()"><img src="https://www.bing.com/favicon.ico" style="width:14px; height:14px"> Bing</div>' +
+      '<div style="display:flex; align-items:center; gap:4px; cursor:pointer" onclick="document.getElementById(\'browser-url\').value=\'https://www.wikipedia.org\'; document.getElementById(\'browser-go\').click()"><img src="https://www.wikipedia.org/favicon.ico" style="width:14px; height:14px"> Wikipedia</div>' +
+    '</div>' +
+    
+    // Webview Container
+    '<div class="browser-content" style="flex:1; background:#fff; position:relative">' +
+      '<iframe id="browser-iframe" src="https://www.google.com/search?igu=1" style="width:100%; height:100%; border:none" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>' +
+      
+      // Compatibility Overlay (Initially Hidden)
+      '<div id="browser-error-overlay" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(30,30,30,0.95); z-index:10; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center">' +
+        '<div style="font-size:48px; margin-bottom:20px">☹️</div>' +
+        '<h2 style="margin-bottom:12px">Este site bloqueou a visualização direta</h2>' +
+        '<p style="color:#aaa; max-width:400px; margin-bottom:24px; font-size:14px">Alguns sites como Google, Facebook e YouTube não permitem ser exibidos dentro de outros painéis por segurança.</p>' +
+        '<div style="display:flex; gap:12px">' +
+          '<button id="browser-btn-proxy" style="background:#4285f4; border:none; color:#fff; padding:12px 24px; border-radius:8px; font-weight:600; cursor:pointer">Usar Modo Compatibilidade</button>' +
+          '<button onclick="this.parentElement.parentElement.style.display=\'none\'" style="background:rgba(255,255,255,0.1); border:none; color:#fff; padding:12px 24px; border-radius:8px; cursor:pointer">Fechar</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
 }

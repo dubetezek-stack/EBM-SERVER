@@ -209,6 +209,14 @@ router.post('/login', checkRateLimit, async (req, res) => {
   addSession(token, sessionData);
   recordLoginAttempt(req.ip, true);
 
+  // Set HttpOnly Cookie for security (prevents XSS theft and avoids token in URL)
+  res.cookie('ebm_auth_token', token, {
+    httpOnly: true,
+    secure: false, // Set to true if using HTTPS
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
   // Get the session we just created to have the MAC
   const { getSession } = require('../sessions');
   const session = getSession(token);
@@ -390,6 +398,14 @@ router.post('/2fa/verify', checkRateLimit, async (req, res) => {
     addSession(finalToken, sessionData);
     recordLoginAttempt(req.ip, true);
     
+    // Set HttpOnly Cookie
+    res.cookie('ebm_auth_token', finalToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
     const { getSession } = require('../sessions');
     const session = getSession(finalToken);
     
