@@ -570,65 +570,80 @@ router.post('/server/restart', requireAdmin, (req, res) => {
 router.post('/server/update', requireAdmin, async (req, res) => {
   try {
     const { execSync } = require('child_process');
-    if (global.addLog) global.addLog('INFO', 'Iniciando atualização do sistema...', req.ip);
+    if (global.addLog) global.addLog('INFO', 'Iniciando atualização forçada...', req.ip);
     
-    // 1. Identify Remote
-    let remote = 'origin';
+    // 1. Verify remotes, add default if none found
+    let remotes = [];
     try {
-      const remotes = execSync('git remote').toString().trim().split('\n');
-      if (remotes.includes('EBM-SERVER')) remote = 'EBM-SERVER';
-      else if (remotes.includes('origin')) remote = 'origin';
-      else if (remotes.length > 0) remote = remotes[0].trim();
+      remotes = execSync('git remote').toString().trim().split('\n').filter(r => r);
     } catch (e) {}
 
-    // 2. Fetch all from remote to be sure
-    if (global.addLog) global.addLog('INFO', `Sincronizando com remoto ${remote}...`, req.ip);
-    execSync(`git fetch ${remote}`, { stdio: 'inherit' });
-
-    // 3. Determine target branch (master or main)
-    let targetBranch = 'master';
-    let remoteRef = `${remote}/master`;
-    try {
-      execSync(`git rev-parse ${remote}/master`, { stdio: 'ignore' });
-    } catch (e) {
+    if (remotes.length === 0) {
+      if (global.addLog) global.addLog('INFO', 'Nenhum remoto detectado. Configurando EBM-SERVER...', req.ip);
       try {
-        execSync(`git rev-parse ${remote}/main`, { stdio: 'ignore' });
-        targetBranch = 'main';
-        remoteRef = `${remote}/main`;
-      } catch (e2) {
-        throw new Error(`Não foi possível localizar branch master ou main no remoto ${remote}`);
+        execSync('git remote add EBM-SERVER https://github.com/dubetezek-stack/EBM-SERVER.git', { stdio: 'inherit' });
+        remotes = ['EBM-SERVER'];
+      } catch (e) {}
+    }
+
+    // 2. Fetch all to get latest state
+    if (global.addLog) global.addLog('INFO', 'Sincronizando com repositório remoto...', req.ip);
+    try {
+      execSync('git fetch --all', { stdio: 'inherit' });
+    } catch (e) {
+      if (global.addLog) global.addLog('WARNING', 'Falha no fetch, tentando prosseguir com cache...', req.ip);
+    }
+
+    // 3. Discover branch
+    let remoteRef = '';
+    let targetBranch = 'master';
+    const allBranches = execSync('git branch -a').toString().split('\n').map(b => b.trim().replace('* ', ''));
+    
+    for (const cand of ['master', 'main']) {
+      const found = allBranches.find(b => b.startsWith('remotes/') && b.endsWith('/' + cand));
+      if (found) {
+        remoteRef = found.replace('remotes/', '');
+        targetBranch = cand;
+        break;
       }
     }
 
-    // 4. Ensure we are on the target branch
+    if (!remoteRef) {
+      remoteRef = (remotes[0] || 'EBM-SERVER') + '/master';
+    }
+
+    // 4. Checkout and Reset Hard
     const currentBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
     if (currentBranch !== targetBranch) {
-      if (global.addLog) global.addLog('INFO', `Mudando para branch ${targetBranch}...`, req.ip);
-      execSync(`git checkout -f ${targetBranch}`, { stdio: 'inherit' });
+      try {
+        execSync(`git checkout -f ${targetBranch}`, { stdio: 'inherit' });
+      } catch (e) {
+        execSync(`git checkout -f -b ${targetBranch} ${remoteRef}`, { stdio: 'inherit' });
+      }
     }
 
-    // 5. Compare commits
     const localCommit = execSync('git rev-parse HEAD').toString().trim();
-    const remoteCommit = execSync(`git rev-parse ${remoteRef}`).toString().trim();
+    let remoteCommit = '';
+    try {
+      remoteCommit = execSync(`git rev-parse ${remoteRef}`).toString().trim();
+    } catch (e) {
+      throw new Error(`Referência ${remoteRef} não encontrada nos remotos.`);
+    }
     
     if (localCommit === remoteCommit) {
-      if (global.addLog) global.addLog('INFO', `Sistema já está na última versão do ${targetBranch}.`, req.ip);
-      return res.json({ success: true, message: 'O sistema já está na última versão.', updated: false });
+      if (global.addLog) global.addLog('INFO', 'Sistema já está na última versão.', req.ip);
+      return res.json({ success: true, message: 'Já está na última versão.', updated: false });
     }
 
-    // 6. Reset to latest commit
-    if (global.addLog) global.addLog('INFO', `Atualizando para commit ${remoteCommit.substring(0,7)}...`, req.ip);
     execSync(`git reset --hard ${remoteRef}`, { stdio: 'inherit' });
     
-    if (global.addLog) global.addLog('INFO', 'Sistema atualizado com sucesso. Reiniciando...', req.ip);
+    if (global.addLog) global.addLog('INFO', 'Sucesso! Reiniciando...', req.ip);
+    res.json({ success: true, message: `Atualizado para ${remoteRef}. Reiniciando...`, updated: true });
     
-    res.json({ success: true, message: `Atualizado para ${targetBranch} (${remoteCommit.substring(0,7)}). Reiniciando...`, updated: true });
-    
-    // 7. Restart
     setTimeout(() => { process.exit(99); }, 1000);
   } catch (err) {
-    if (global.addLog) global.addLog('ERROR', 'Falha na atualização: ' + err.message, req.ip);
-    res.status(500).json({ error: 'Erro ao atualizar: ' + err.message });
+    if (global.addLog) global.addLog('ERROR', 'Falha no update: ' + err.message, req.ip);
+    res.status(500).json({ error: err.message });
   }
 });
 
