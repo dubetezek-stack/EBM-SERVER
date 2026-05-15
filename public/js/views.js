@@ -20,15 +20,6 @@ function renderExplorer(user) {
       '</div>' + 
       '<div class="breadcrumb" id="breadcrumb"><span class="breadcrumb-item active">Este Computador</span></div>' + 
       '<div class="top-bar-actions">' + 
-        '<div class="user-badge">' + 
-          '<div class="user-badge-main">' + 
-            '<span class="user-badge-name">' + escapeHtml(username) + '</span>' + 
-            '<span class="user-badge-role ' + role + '">' + (isAdmin ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'COMUM')) + '</span>' + 
-          '</div>' + 
-          '<div class="user-badge-details">' + (user.ip || '---') + ' • ' + (user.mac || '---') + '</div>' + 
-        '</div>' + 
-        (isMasterPlus ? '<button class="btn-icon" id="btn-config" title="Configurações">' + Icons.settings + '</button>' : '') + 
-        '<button class="btn-icon" id="btn-logout" title="Sair">' + Icons.logout + '</button>' + 
       '</div>' + 
     '</div>' + 
     '<div class="toolbar">' + 
@@ -38,7 +29,6 @@ function renderExplorer(user) {
     '</div>' + 
     renderUploadZone() +
     '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
-    renderDock() +
   '</div>';
 }
 function renderSpeedTestView() {
@@ -51,12 +41,10 @@ function renderSpeedTestView() {
                  '<div style="font-size:12px;color:var(--text-secondary)">Teste a velocidade da sua rede local</div>' +
                '</div>' +
              '</div>' +
-             '<button class="btn-icon" id="btn-app-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
            '</div>' +
            '<div class="app-page-content" style="flex:1;padding:24px;background:#000">' +
              '<iframe src="/speedtest/index.html" style="width:100%; height:100%; border:none; border-radius:12px"></iframe>' +
            '</div>' +
-           renderDock() +
          '</div>';
 }
 function renderCamerasView() {
@@ -100,12 +88,10 @@ function renderCamerasView() {
                  '<div style="font-size:12px;color:var(--text-secondary)">Monitoramento de câmeras ao vivo</div>' +
                '</div>' +
              '</div>' +
-             '<button class="btn-icon" id="btn-app-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
            '</div>' +
            '<div class="app-page-content" style="flex:1;overflow-y:auto;padding:24px">' +
              content +
            '</div>' +
-           renderDock() +
          '</div>';
 }
 function renderDrives(drives) {
@@ -216,12 +202,18 @@ function renderDesktopIcons(installedApps) {
   return appsHtml;
 }
 
-function renderDesktop(installedApps, user) {
+function renderDesktop(installedApps, user, appWindow) {
   var appsHtml = renderDesktopIcons(installedApps);
 
   var greeting = getGreeting();
   var userName = user ? user.username : 'Usuário';
   var wallpaper = (user && user.settings && user.settings.wallpaper) || '';
+  if (!wallpaper && user && user.username) {
+    var seed = 0;
+    for (var i = 0; i < user.username.length; i++) seed += user.username.charCodeAt(i);
+    var wallNum = (seed % 22) + 1;
+    wallpaper = '/wallpapers/' + wallNum + '.jpg';
+  }
   var style = wallpaper ? ' style="background-image:url(' + wallpaper + '); background-size:cover; background-position:center"' : '';
 
   return '<div class="desktop-view"' + style + '>' +
@@ -236,7 +228,15 @@ function renderDesktop(installedApps, user) {
            '<div class="desktop-content">' +
              '<div class="desktop-icons">' + appsHtml + '</div>' +
            '</div>' +
+           (appWindow ? '<div class="app-window-overlay">' + appWindow + '</div>' : '') +
            renderDock() +
+         '</div>';
+}
+
+function renderAppWindow(content) {
+  return '<div class="app-window">' +
+           '<button class="window-close-btn" id="btn-window-close" title="Fechar">' + Icons.close + '</button>' +
+           '<div class="app-window-content" style="height:100%; overflow:hidden; border-radius:inherit">' + content + '</div>' +
          '</div>';
 }
 
@@ -281,13 +281,23 @@ function renderWallpaperMenu(wallpapers) {
   return html;
 }
 
+
 function renderDock() {
-  var role = getUserRole();
-  var isMasterPlus = role === 'master' || role === 'admin';
-  var roleLabel = (role === 'admin' ? 'ADMIN' : (role === 'master' ? 'MASTER' : 'USUÁRIO'));
+  var user = (window.app && window.app.user) ? window.app.user : null;
+  var role = user ? user.role : 'common';
+  var ip = user ? (user.ip || '---') : '---';
+  var mac = user ? (user.mac || '---') : '---';
   
+  var roleLabel = 'COMUM';
+  if (role === 'admin') roleLabel = 'ADMIN';
+  else if (role === 'master') roleLabel = 'MASTER';
+
+  if (user) {
+    roleLabel += ' — ' + ip + ' | ' + mac;
+  }
+
   var hasExplorer = true;
-  var hasSettings = isMasterPlus;
+  var hasSettings = (role === 'admin' || role === 'master');
   if (window.app && window.app.apps) {
     hasExplorer = !!window.app.apps.find(function(a){return a.id === 'explorer';});
     hasSettings = !!window.app.apps.find(function(a){return a.id === 'settings';});
@@ -334,7 +344,33 @@ function renderAppStore(availableApps, installedIds) {
              '<button class="btn-icon" id="btn-store-close" style="position:absolute;top:20px;right:20px">' + Icons.close + '</button>' +
            '</div>' +
            '<div class="app-store-grid">' + appsHtml + '</div>' +
-           renderDock() +
+         '</div>';
+}
+
+function renderGenericAppView(app) {
+  var url = '/' + app.id + '/';
+  var hostname = window.location.hostname;
+  if (app.id === 'plex') url = 'http://' + hostname + ':32400/web';
+  if (app.id === 'transmission') url = 'http://' + hostname + ':9091';
+  if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123';
+  if (app.id === 'portainer') url = 'http://' + hostname + ':9000';
+
+  var iconHtml = Icons[app.icon] || Icons.file;
+  if (typeof iconHtml === 'function') iconHtml = iconHtml('#fff');
+
+  return '<div class="app-page-view">' +
+           '<div class="app-page-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+             '<div style="display:flex;align-items:center;gap:12px">' +
+               '<div style="color:var(--accent);font-size:24px;display:flex">' + iconHtml + '</div>' +
+               '<div>' +
+                 '<div style="font-size:18px;font-weight:700">' + escapeHtml(app.name) + '</div>' +
+                 '<div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(app.description) + '</div>' +
+               '</div>' +
+             '</div>' +
+           '</div>' +
+           '<div class="app-page-content" style="flex:1;background:#000;overflow:hidden">' +
+             '<iframe src="' + url + '" style="width:100%; height:100%; border:none; background:#000"></iframe>' +
+           '</div>' +
          '</div>';
 }
 

@@ -231,7 +231,7 @@ select.form-input {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 8px 60px 8px 12px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-subtle);
   min-height: 48px;
@@ -1840,5 +1840,76 @@ input:checked + .slider:before { transform: translateX(20px); }
   background-position: center;
   background-repeat: no-repeat;
   transition: background-image 0.5s ease;
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ===== APP WINDOW (Janelinha) ===== */
+.app-window-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.app-window {
+  width: 92vw;
+  height: 85vh;
+  background: rgba(20, 20, 20, 0.8);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  pointer-events: auto;
+  animation: windowEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes windowEnter {
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.window-close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 1000;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.window-close-btn:hover {
+  background: rgba(255,255,255,0.2);
+  transform: rotate(90deg);
+}
+
+.app-window .explorer-layout,
+.app-window .app-page-view,
+.app-window .admin-page-view {
+  height: 100%;
+  background: transparent !important;
+}
+
+/* Adjust dock when window is open */
+.desktop-view .dock {
+  z-index: 200;
 }
 

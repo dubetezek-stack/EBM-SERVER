@@ -39,92 +39,138 @@ var App = /*#__PURE__*/function () {
     });
   };
 
-  _proto.navigate = function navigate(view, params, skipHistory) {
-    var self = this; // Define self for use in event handlers
+  _proto.navigate = function navigate(view, params, isBack) {
+    var self = this;
     var appEl = document.getElementById('app');
-    if (!appEl) return;
-
-    if (this.currentView === view && JSON.stringify(this.currentParams) === JSON.stringify(params)) return;
     
-    if (!skipHistory && this.currentView && this.currentView !== 'login' && this.currentView !== 'setup') {
+    var paramsChanged = JSON.stringify(this.currentParams) !== JSON.stringify(params);
+    if (!isBack && this.currentView && (this.currentView !== view || paramsChanged) && this.currentView !== 'login' && this.currentView !== 'setup') {
       this.history.push({ view: this.currentView, params: this.currentParams });
-      this.forwardHistory = []; // Clear forward history on new navigation
+      this.forwardHistory = [];
+    }
+
+    if (view === 'setup' || view === 'login') {
+       this.currentView = view;
+       this.currentParams = params;
+       appEl.innerHTML = (view === 'setup' ? renderSetup() : renderLogin());
+       (view === 'setup' ? this.bindSetup() : this.bindLogin());
+       return;
+    }
+
+    var desktopView = document.querySelector('.desktop-view');
+    if (!desktopView) {
+       this.currentView = view;
+       this.currentParams = params;
+       this.showDesktop(view !== 'desktop' ? view : null, params);
+       return;
     }
 
     this.currentView = view;
     this.currentParams = params;
-    console.log('Navegando para:', view, params);
 
-    try {
-      if (view === 'setup') {
-        appEl.innerHTML = renderSetup();
-        this.bindSetup();
-      } else if (view === 'login') {
-        appEl.innerHTML = renderLogin();
-        this.bindLogin();
-      } else if (view === 'desktop') {
-        this.showDesktop();
-      } else if (view === 'appstore') {
-        this.showAppStore();
-      } else if (view === 'explorer') {
-        appEl.innerHTML = renderExplorer(this.user);
-        this.bindExplorer(params ? params.driveId : null, params ? params.subpath : '');
-        this.bindDock('files');
-      } else if (view === 'speedtest') {
-        appEl.innerHTML = renderSpeedTestView();
-        var btnClose = document.getElementById('btn-app-close');
-        if (btnClose) btnClose.onclick = function() { self.back(); };
-        this.bindDock('files');
-      } else if (view === 'cameras') {
-        appEl.innerHTML = renderCamerasView();
-        this.bindCameras();
-        var btnClose = document.getElementById('btn-app-close');
-        if (btnClose) btnClose.onclick = function() { self.back(); };
-        this.bindDock('files');
-      } else if (view === 'admin') {
-        var role = this.user ? this.user.role : '';
-        var isAdmin = role === 'admin';
-        
-        var tabsHtml = '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>' +
-                       '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>' +
-                       '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
-        
-        if (isAdmin) {
-          tabsHtml += '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Conectados</button>' +
-                      '<button class="config-tab" data-tab="server" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Servidor</button>' +
-                      '<button class="config-tab" data-tab="cameras" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Câmeras</button>' +
-                      '<button class="config-tab" data-tab="logs" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Logs</button>';
-        }
-
-        appEl.innerHTML = '<div class="admin-page-view">' + 
-                            '<div class="admin-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
-                              '<div style="display:flex;align-items:center;gap:12px">' +
-                                '<div style="color:var(--accent);font-size:24px">' + Icons.settings + '</div>' +
-                                '<div>' +
-                                  '<div style="font-size:18px;font-weight:700">Configurações do Sistema</div>' +
-                                  '<div style="font-size:12px;color:var(--text-secondary)">Gerencie drives, usuários e segurança</div>' +
-                                '</div>' +
-                              '</div>' +
-                              '<button class="btn-icon" id="btn-admin-close" style="background:rgba(255,255,255,0.05);border-radius:50%">' + Icons.close + '</button>' +
-                            '</div>' +
-                            '<div class="config-tabs" style="background:var(--bg-secondary);padding:0 24px;border-bottom:1px solid var(--border);display:flex;gap:20px;overflow-x:auto">' +
-                              tabsHtml +
-                            '</div>' +
-                            '<div class="admin-content" id="config-body" style="flex:1;overflow-y:auto;padding:24px">' +
-                              '<div class="loading"><div class="spinner"></div></div>' +
-                            '</div>' +
-                            renderDock() +
-                          '</div>';
-        this.bindConfig();
-        this.loadConfigTab('drives');
-        this.bindDock('settings');
-        var btnClose = document.getElementById('btn-admin-close');
-        if (btnClose) btnClose.onclick = function() { self.back(); };
-      }
-    } catch (e) {
-      console.error('Navegação falhou:', e);
-      appEl.innerHTML = '<div style="padding:40px;text-align:center;color:#fff;background:#000;height:100vh"><h2>Erro de Sistema</h2><p>' + e.message + '</p><button onclick="location.reload()" style="margin-top:20px;padding:10px 20px;background:#0078d4;color:#fff;border:none;border-radius:4px;cursor:pointer">Recarregar</button></div>';
+    if (view === 'desktop') {
+       var overlay = document.querySelector('.app-window-overlay');
+       if (overlay) overlay.remove();
+       this.bindDock('home');
+       return;
     }
+
+    var windowContent = '';
+    if (view === 'explorer') {
+       windowContent = renderExplorer(this.user);
+    } else if (view === 'speedtest') {
+       windowContent = renderSpeedTestView();
+    } else if (view === 'cameras') {
+       windowContent = renderCamerasView();
+    } else if (view === 'admin') {
+       var role = this.user ? this.user.role : '';
+       var isAdmin = role === 'admin';
+       var tabsHtml = '<button class="config-tab active" data-tab="drives" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Drives</button>' +
+                      '<button class="config-tab" data-tab="users" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Usuários</button>' +
+                      '<button class="config-tab" data-tab="apps" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Apps Instalados</button>';
+       if (isAdmin) {
+         tabsHtml += '<button class="config-tab" data-tab="sessions" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Conectados</button>' +
+                     '<button class="config-tab" data-tab="server" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Servidor</button>' +
+                     '<button class="config-tab" data-tab="cameras" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Câmeras</button>' +
+                     '<button class="config-tab" data-tab="logs" style="padding:15px 0;background:none;border:none;color:var(--text-secondary);cursor:pointer;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap">Logs</button>';
+       }
+       windowContent = '<div class="admin-page-view">' + 
+                           '<div class="admin-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+                             '<div style="display:flex;align-items:center;gap:12px">' +
+                               '<div style="color:var(--accent);font-size:24px">' + Icons.settings + '</div>' +
+                               '<div>' +
+                                 '<div style="font-size:18px;font-weight:700">Configurações do Sistema</div>' +
+                                 '<div style="font-size:12px;color:var(--text-secondary)">Gerencie drives, usuários e segurança</div>' +
+                               '</div>' +
+                             '</div>' +
+                           '</div>' +
+                           '<div class="config-tabs" style="background:var(--bg-secondary);padding:0 24px;border-bottom:1px solid var(--border);display:flex;gap:20px;overflow-x:auto">' +
+                             tabsHtml +
+                           '</div>' +
+                           '<div class="admin-content" id="config-body" style="flex:1;overflow-y:auto;padding:24px">' +
+                             '<div class="loading"><div class="spinner"></div></div>' +
+                           '</div>' +
+                         '</div>';
+    } else if (view === 'appstore') {
+       windowContent = '<div class="appstore-view" style="display:flex;flex-direction:column;height:100%">' +
+                         '<div class="appstore-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
+                           '<div style="display:flex;align-items:center;gap:12px">' +
+                             '<div style="color:var(--accent-blue);font-size:24px">' + Icons.appstore + '</div>' +
+                             '<div>' +
+                               '<div style="font-size:18px;font-weight:700">App Store</div>' +
+                               '<div style="font-size:12px;color:var(--text-secondary)">Instale novos aplicativos no seu servidor</div>' +
+                             '</div>' +
+                           '</div>' +
+                         '</div>' +
+                         '<div class="appstore-content" id="appstore-body" style="flex:1;overflow-y:auto;padding:24px">' +
+                           '<div class="loading"><div class="spinner"></div></div>' +
+                         '</div>' +
+                       '</div>';
+    }
+
+    var overlay = document.querySelector('.app-window-overlay');
+    if (!overlay) {
+       var div = document.createElement('div');
+       div.className = 'app-window-overlay';
+       div.innerHTML = renderAppWindow(windowContent);
+       desktopView.appendChild(div);
+       overlay = div;
+    } else {
+       var windowContentArea = overlay.querySelector('.app-window-content');
+       if (windowContentArea) {
+          windowContentArea.innerHTML = windowContent;
+       } else {
+          overlay.innerHTML = renderAppWindow(windowContent);
+       }
+    }
+    
+    // Bindings
+    if (view === 'explorer') {
+       this.bindExplorer(params ? params.driveId : null, params ? params.subpath : '');
+       this.bindDock('files');
+    } else if (view === 'speedtest') {
+       this.bindDock('files');
+    } else if (view === 'cameras') {
+       this.bindCameras();
+       this.bindDock('files');
+    } else if (view === 'admin') {
+       this.bindConfig();
+       this.loadConfigTab('drives');
+       this.bindDock('settings');
+    } else if (view === 'appstore') {
+       this.bindAppStore();
+       this.bindDock('store');
+    } else {
+       // Generic App Handler
+       var appInfo = (this.apps || []).find(function(a) { return a.id === view; });
+       if (appInfo) {
+          windowContent = renderGenericAppView(appInfo);
+          this.bindDock('files'); // Default dock state
+       }
+    }
+
+    var btnClose = document.getElementById('btn-window-close');
+    if (btnClose) btnClose.onclick = function() { self.navigate('desktop'); };
   };
 
   _proto.back = function back() {
@@ -206,7 +252,7 @@ var App = /*#__PURE__*/function () {
   };
 
   // --- Desktop & Dock ---
-  _proto.showDesktop = function showDesktop() {
+  _proto.showDesktop = function showDesktop(initialApp, params) {
     var self = this;
     var appEl = document.getElementById('app');
     
@@ -220,17 +266,17 @@ var App = /*#__PURE__*/function () {
         self.apps.push({ id: 'settings', name: 'Configurações', icon: 'settings', description: 'Configurações do sistema' });
       }
 
-      if (self.currentView === 'desktop') {
-        appEl.innerHTML = renderDesktop(self.apps, self.user);
-        self.bindDock('home');
-        self.bindDesktopEvents();
+      appEl.innerHTML = renderDesktop(self.apps, self.user);
+      self.bindDock('home');
+      self.bindDesktopEvents();
+      
+      if (initialApp) {
+         self.navigate(initialApp, params, true);
       }
     }).catch(function(err) {
       console.error('Falha ao carregar apps:', err);
-      if (self.currentView === 'desktop') {
-        appEl.innerHTML = renderDesktop([], self.user);
-        self.bindDock('home');
-      }
+      appEl.innerHTML = renderDesktop([], self.user);
+      self.bindDock('home');
     });
   };
 
@@ -1270,21 +1316,8 @@ var App = /*#__PURE__*/function () {
     // Bind Drag & Drop
     self.bindDragAndDrop();
 
-    var btnLogout = document.getElementById('btn-logout');
-    if (btnLogout) btnLogout.onclick = function() { API.clearToken(); self.navigate('login'); };
 
-    var btnConfig = document.getElementById('btn-config');
-    if (btnConfig) btnConfig.onclick = function() { self.navigate('admin'); };
 
-    var topBar = document.querySelector('.top-bar-actions');
-    if (topBar && !document.getElementById('btn-topbar-close')) {
-      var btnClose = document.createElement('button');
-      btnClose.id = 'btn-topbar-close';
-      btnClose.className = 'btn-icon';
-      btnClose.innerHTML = Icons.close;
-      btnClose.onclick = function() { self.navigate('desktop'); };
-      topBar.insertBefore(btnClose, topBar.firstChild);
-    }
   };
 
   _proto.loadDrives = function loadDrives() {
@@ -1786,6 +1819,47 @@ var App = /*#__PURE__*/function () {
           showToast(res.error || 'Erro no upload', 'error');
         }
       }).catch(function(err) { showToast(err.message, 'error'); });
+  };
+
+  _proto.bindAppStore = function bindAppStore() {
+    var self = this;
+    var body = document.getElementById('appstore-body');
+    if (!body) return;
+
+    API.get('/apps/list').then(function(available) {
+      API.get('/apps/installed').then(function(installed) {
+        var installedIds = (installed || []).map(function(a) { return a.id; });
+        body.innerHTML = renderAppStore(available, installedIds);
+        
+        // Bind install buttons
+        body.querySelectorAll('.btn-install:not(.installed)').forEach(function(btn) {
+          btn.onclick = function() {
+            var appId = this.getAttribute('data-app-id');
+            var btnEl = this;
+            btnEl.disabled = true;
+            btnEl.textContent = 'Instalando...';
+            
+            API.post('/apps/install/' + appId).then(function(res) {
+              if (res.success) {
+                showToast('Aplicativo instalado!', 'success');
+                self.bindAppStore(); // Refresh
+              } else {
+                btnEl.disabled = false;
+                btnEl.textContent = 'Instalar';
+                showToast(res.error || 'Falha na instalação', 'error');
+              }
+            }).catch(function(err) {
+              btnEl.disabled = false;
+              btnEl.textContent = 'Instalar';
+              showToast(err.message, 'error');
+            });
+          };
+        });
+
+        var btnClose = document.getElementById('btn-store-close');
+        if (btnClose) btnClose.onclick = function() { self.navigate('desktop'); };
+      });
+    });
   };
 
   return App;
