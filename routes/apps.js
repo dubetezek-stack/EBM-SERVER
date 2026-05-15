@@ -40,6 +40,14 @@ const DEFAULT_APPS = [
     installerPath: 'jellyfin_10.11.8-amd64.zip',
     execPath: 'jellyfin/jellyfin.exe',
     args: ['--service', '--datadir', '../data', '--configdir', '../config', '--logdir', '../log', '--cachedir', '../cache']
+  },
+  { 
+    id: 'browser', 
+    name: 'Navegador', 
+    icon: 'browser', 
+    description: 'Navegue na internet de dentro do seu servidor', 
+    category: 'Utilidades', 
+    official: true 
   }
 ];
 
@@ -48,7 +56,7 @@ function ensureAppsConfig() {
   if (!config || !config.available || !config.installed) {
     config = {
       available: DEFAULT_APPS,
-      installed: ['explorer', 'speedtest', 'cameras', 'settings'],
+      installed: ['explorer', 'speedtest', 'cameras', 'settings', 'browser'],
       permissions: {}
     };
     config.installed.forEach(id => {
@@ -69,6 +77,18 @@ function ensureAppsConfig() {
         config.available.push(defaultApp);
       }
     });
+
+    // FORCE: Ensure 'browser' is in the installed list if it's a new official app
+    if (!config.installed.includes('browser')) {
+      config.installed.push('browser');
+      if (!config.permissions['browser']) {
+        config.permissions['browser'] = { 
+          byRole: { admin: true, master: true, user: true },
+          byUser: {}
+        };
+      }
+    }
+
     writeJSON(appsConfigPath, config);
   }
   return config;

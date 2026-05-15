@@ -140,6 +140,8 @@ var App = /*#__PURE__*/function () {
         '<div class="loading"><div class="spinner"></div></div>' +
         '</div>' +
         '</div>';
+    } else if (view === 'browser') {
+      windowContent = renderBrowserView();
     } else {
       var appInfo = (this.apps || []).find(function (a) { return a.id === view; });
       if (appInfo) {
@@ -188,6 +190,9 @@ var App = /*#__PURE__*/function () {
     } else if (view === 'appstore') {
       this.bindAppStore();
       this.bindDock('store');
+    } else if (view === 'browser') {
+      this.bindBrowser();
+      this.bindDock('home');
     }
 
     var btnClose = document.getElementById('btn-window-close');
@@ -1327,6 +1332,50 @@ var App = /*#__PURE__*/function () {
         playAll();
       };
     }
+  };
+
+  _proto.bindBrowser = function bindBrowser() {
+    var self = this;
+    var iframe = document.getElementById('browser-iframe');
+    var input = document.getElementById('browser-url');
+    var btnGo = document.getElementById('browser-go');
+    var btnBack = document.getElementById('browser-back');
+    var btnForward = document.getElementById('browser-forward');
+    var btnRefresh = document.getElementById('browser-refresh');
+
+    if (!iframe || !input) return;
+
+    function navigateTo(url) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        if (url.indexOf('.') > -1) {
+          url = 'https://' + url;
+        } else {
+          url = 'https://www.google.com/search?q=' + encodeURIComponent(url) + '&igu=1';
+        }
+      }
+      input.value = url;
+      iframe.src = url;
+    }
+
+    input.onkeydown = function (e) {
+      if (e.key === 'Enter') navigateTo(input.value);
+    };
+
+    if (btnGo) btnGo.onclick = function () {
+      navigateTo(input.value);
+    };
+
+    if (btnRefresh) btnRefresh.onclick = function () {
+      iframe.src = iframe.src;
+    };
+
+    if (btnBack) btnBack.onclick = function () {
+      try { iframe.contentWindow.history.back(); } catch (e) { console.warn('CORS restricted history.back()'); }
+    };
+
+    if (btnForward) btnForward.onclick = function () {
+      try { iframe.contentWindow.history.forward(); } catch (e) { console.warn('CORS restricted history.forward()'); }
+    };
   };
 
   // --- Explorer Logic ---

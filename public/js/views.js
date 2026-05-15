@@ -696,3 +696,25 @@ function renderForcedPasswordChange(user) {
            '</div>' +
          '</div>';
 }
+
+function renderBrowserView() {
+  return '<div class="app-page-view" style="height:100%; display:flex; flex-direction:column; background:#111">' +
+           '<div class="app-page-header browser-toolbar" style="background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; flex-shrink:0; height:48px">' +
+             '<div style="display:flex; align-items:center; gap:4px">' +
+               '<button class="btn-icon btn-sm" id="browser-back" title="Voltar">' + Icons.back + '</button>' +
+               '<button class="btn-icon btn-sm" id="browser-forward" title="Avançar">' + Icons.forward + '</button>' +
+               '<button class="btn-icon btn-sm" id="browser-refresh" title="Recarregar">' + Icons.refresh + '</button>' +
+             '</div>' +
+             '<div class="browser-address-bar" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:20px; padding:4px 16px; display:flex; align-items:center; gap:8px">' +
+               '<div style="color:var(--text-secondary); font-size:12px">' + Icons.browser + '</div>' +
+               '<input type="text" id="browser-url" value="https://www.google.com/search?igu=1" style="flex:1; background:transparent; border:none; color:#fff; font-size:13px; outline:none" placeholder="Digite uma URL ou pesquise...">' +
+             '</div>' +
+             '<div style="display:flex; align-items:center; gap:8px">' +
+               '<button class="btn btn-primary btn-sm" id="browser-go" style="padding:4px 16px; border-radius:15px; font-size:12px">Ir</button>' +
+             '</div>' +
+           '</div>' +
+           '<div class="app-page-content" style="flex:1; position:relative; overflow:hidden; background:#fff">' +
+             '<iframe id="browser-iframe" src="https://www.google.com/search?igu=1" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; background:#fff" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
+           '</div>' +
+         '</div>';
+}
