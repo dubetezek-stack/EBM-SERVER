@@ -293,16 +293,20 @@ var App = /*#__PURE__*/function () {
       var icon = e.target.closest('.desktop-icon');
       if (!icon) return;
       
+      e.preventDefault();
+      e.stopPropagation();
+      
       var appId = icon.getAttribute('data-app-id');
       if (icon.id === 'icon-explorer') appId = 'explorer';
       
+      // Force navigation for apps to avoid accidental file previews
       if (appId === 'explorer') self.navigate('explorer');
       else if (appId === 'speedtest') self.navigate('speedtest');
       else if (appId === 'cameras') self.navigate('cameras');
       else if (appId === 'settings') self.navigate('admin');
       else if (appId === 'plex') window.open('http://' + window.location.hostname + ':32400', '_blank');
       else if (appId === 'homeassistant') window.open('http://' + window.location.hostname + ':8123', '_blank');
-      else self.navigate(appId);
+      else if (appId) self.navigate(appId);
     });
 
     document.addEventListener('input', function(e) {

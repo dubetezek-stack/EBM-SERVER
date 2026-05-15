@@ -49,7 +49,7 @@ class AppsManager {
   /**
    * Spawns an app process
    */
-  spawnApp(appId, execRelativePath) {
+  spawnApp(appId, execRelativePath, args = [], env = {}) {
     if (this.processes[appId]) {
        // Already running? Check if process is still alive
        try {
@@ -68,11 +68,14 @@ class AppsManager {
       throw new Error(`Executável não encontrado: ${fullExecPath}`);
     }
 
-    const child = spawn(fullExecPath, [], {
+    const appEnv = { ...process.env, ...env };
+
+    const child = spawn(fullExecPath, args, {
       cwd: exeDir,
       detached: true,
       stdio: 'ignore',
-      windowsHide: true
+      windowsHide: true,
+      env: appEnv
     });
 
     child.unref();

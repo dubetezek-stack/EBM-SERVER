@@ -1,17 +1,40 @@
-// Session tracking (in-memory)
+// Session tracking (Persistent)
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-const sessions = new Map();
+// Access DATA_DIR from storage utility
+const DATA_DIR = path.join(os.homedir(), '.webfileexplorer');
+const SESSIONS_PATH = path.join(DATA_DIR, 'sessions.json');
+
+let sessions = new Map();
+
+// Load sessions on startup
+try {
+  if (fs.existsSync(SESSIONS_PATH)) {
+    const data = JSON.parse(fs.readFileSync(SESSIONS_PATH, 'utf8'));
+    sessions = new Map(Object.entries(data));
+  }
+} catch (e) {
+  sessions = new Map();
+}
+
+function saveSessions() {
+  try {
+    const data = Object.fromEntries(sessions);
+    fs.writeFileSync(SESSIONS_PATH, JSON.stringify(data, null, 2));
+  } catch (e) {}
+}
 
 function getSessionId(token) {
-  // Use last 32 chars of token as session key to allow multiple connections per user
   return token ? token.substring(token.length - 32) : null;
 }
 
 function addSession(token, data) {
   const id = getSessionId(token);
   if (!id) return;
-  // Try to get MAC address from IP
+  
   let mac = 'N/A';
   try {
     if (data.ip && data.ip !== '127.0.0.1' && data.ip !== '::1') {
@@ -20,7 +43,7 @@ function addSession(token, data) {
       const match = result.match(/([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}/);
       if (match) mac = match[0].toUpperCase();
     }
-  } catch (e) { /* ARP may fail */ }
+  } catch (e) {}
 
   sessions.set(id, {
     sessionId: id,
@@ -34,12 +57,16 @@ function addSession(token, data) {
     loginTime: new Date().toISOString(),
     lastActivity: new Date().toISOString()
   });
+  saveSessions();
 }
 
 function updateActivity(token) {
   const id = getSessionId(token);
   const session = sessions.get(id);
-  if (session) session.lastActivity = new Date().toISOString();
+  if (session) {
+    session.lastActivity = new Date().toISOString();
+    saveSessions();
+  }
 }
 
 function isSessionActive(token) {
@@ -50,22 +77,29 @@ function isSessionActive(token) {
 function removeSession(token) {
   const id = getSessionId(token);
   sessions.delete(id);
+  saveSessions();
 }
 
 function removeSessionById(sessionId) {
   sessions.delete(sessionId);
+  saveSessions();
 }
 
 function clearAllSessions() {
   sessions.clear();
+  saveSessions();
 }
 
 function getActiveSessions() {
-  // Remove sessions older than 7 days
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let changed = false;
   for (const [id, s] of sessions) {
-    if (new Date(s.lastActivity).getTime() < cutoff) sessions.delete(id);
+    if (new Date(s.lastActivity).getTime() < cutoff) {
+      sessions.delete(id);
+      changed = true;
+    }
   }
+  if (changed) saveSessions();
   return Array.from(sessions.values());
 }
 

@@ -356,29 +356,27 @@ function renderGenericAppView(app) {
   var hostname = window.location.hostname;
   
   if (app.port) {
-    url = '/api/apps/proxy/' + app.id + '/?token=' + (API.token || '');
+    url = '/api/apps/proxy/' + app.id + '/?token=' + (API.token || '') + '&cb=' + Date.now();
   } else {
-    if (app.id === 'plex') url = 'http://' + hostname + ':32400/web';
-    if (app.id === 'transmission') url = 'http://' + hostname + ':9091';
-    if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123';
-    if (app.id === 'portainer') url = 'http://' + hostname + ':9000';
+    var cb = Date.now();
+    if (app.id === 'plex') url = 'http://' + hostname + ':32400/web?cb=' + cb;
+    if (app.id === 'transmission') url = 'http://' + hostname + ':9091?cb=' + cb;
+    if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123?cb=' + cb;
+    if (app.id === 'portainer') url = 'http://' + hostname + ':9000?cb=' + cb;
   }
 
   var iconHtml = Icons[app.icon] || Icons.file;
   if (typeof iconHtml === 'function') iconHtml = iconHtml('#fff');
 
-  return '<div class="app-page-view">' +
-           '<div class="app-page-header" style="background:var(--bg-secondary);padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">' +
-             '<div style="display:flex;align-items:center;gap:12px">' +
-               '<div style="color:var(--accent);font-size:24px;display:flex">' + iconHtml + '</div>' +
-               '<div>' +
-                 '<div style="font-size:18px;font-weight:700">' + escapeHtml(app.name) + '</div>' +
-                 '<div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(app.description) + '</div>' +
-               '</div>' +
+  return '<div class="app-page-view" style="height:100%; display:flex; flex-direction:column; background:#111">' +
+           '<div class="app-page-header" style="background:var(--bg-secondary); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; flex-shrink:0; height:40px">' +
+             '<div style="display:flex; align-items:center; gap:10px">' +
+               '<div style="color:var(--accent); font-size:16px; display:flex">' + iconHtml + '</div>' +
+               '<div style="font-size:13px; font-weight:600; color:#fff">' + escapeHtml(app.name) + '</div>' +
              '</div>' +
            '</div>' +
-           '<div class="app-page-content" style="flex:1;background:#000;overflow:hidden">' +
-             '<iframe src="' + url + '" style="width:100%; height:100%; border:none; background:#000"></iframe>' +
+           '<div class="app-page-content" style="flex:1; position:relative; overflow:hidden; background:#000">' +
+             '<iframe src="' + url + '" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; background:#000" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' +
            '</div>' +
          '</div>';
 }

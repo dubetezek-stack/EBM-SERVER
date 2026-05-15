@@ -20,12 +20,14 @@ function getUsers() {
 }
 
 function authenticate(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '') || req.query?.token || req.cookies?.auth_token;
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.query?.token || req.cookies?.ebm_auth_token;
   if (!token) {
     return res.status(401).json({ error: 'Token não fornecido' });
   }
 
   const config = getConfig();
+  const secretLog = `[${new Date().toISOString()}] DEBUG SECRET: ${config.jwtSecret ? config.jwtSecret.substring(0, 4) + '...' : 'MISSING'}\n`;
+  try { fs.appendFileSync(path.join(DATA_DIR, 'requests.log'), secretLog); } catch(err) {}
   if (!config.jwtSecret) {
     return res.status(401).json({ error: 'Sistema não configurado' });
   }
@@ -54,6 +56,8 @@ function authenticate(req, res, next) {
     updateActivity(token);
     next();
   } catch (e) {
+    const logMsg = `[${new Date().toISOString()}] AUTH ERROR: ${e.message} for ${req.url}\n`;
+    try { fs.appendFileSync(path.join(DATA_DIR, 'requests.log'), logMsg); } catch(err) {}
     return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }

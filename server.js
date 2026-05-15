@@ -4,6 +4,7 @@ const fs = require('fs');
 const cors = require('cors');
 const os = require('os');
 const cookieParser = require('cookie-parser');
+const http = require('http');
 const { initDDNS } = require('./ddns');
 const { router: cameraRouter, initCameraWS } = require('./routes/cameras');
 const { readJSON, writeJSON, DATA_DIR } = require('./utils/storage');
@@ -44,6 +45,26 @@ const PORT = process.env.PORT || config.port || 3000;
 const SERVER_NAME = config.serverName || 'EBM SERVER';
 
 // Middleware
+// Global Request Logger for Debugging
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    const logMsg = `[${new Date().toISOString()}] ${req.method} ${req.url} -> ${res.statusCode}\n`;
+    const fs = require('fs');
+    const path = require('path');
+    try {
+      fs.appendFileSync(path.join(DATA_DIR, 'requests.log'), logMsg);
+    } catch (e) {}
+  });
+  
+  // If a request comes for a root-level resource but we have an active app cookie, redirect it
+  const currentApp = req.cookies?.current_app;
+  const appPaths = ['/web/', '/System/', '/Branding/', '/Items/', '/Users/', '/DisplayPreferences/', '/Localization/', '/Startup/'];
+  if (currentApp && appPaths.some(p => req.url.startsWith(p))) {
+    return res.redirect(`/api/apps/proxy/${currentApp}${req.url}`);
+  }
+  
+  next();
+});
 app.set('trust proxy', true);
 app.use(cors());
 
@@ -72,12 +93,92 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
+const { authenticate } = require('./middleware/auth');
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/files', require('./routes/files'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/cameras', cameraRouter);
 app.use('/api/apps', require('./routes/apps'));
 app.use('/api/user', require('./routes/user'));
+
+// Proxy with relaxed auth for sub-resources to fix 401s
+app.all(['/proxy/:appId', '/proxy/:appId/*', '/api/apps/proxy/:appId/*'], (req, res, next) => {
+  // If it's the main entry point (with token), authenticate and set cookies
+  if (req.query.token) {
+    return authenticate(req, res, () => {
+      const appId = req.params.appId;
+      res.cookie('current_app', appId, { path: '/', maxAge: 3600000 });
+      res.cookie('ebm_auth_token', req.query.token, { path: '/', httpOnly: true, maxAge: 86400000 });
+      proxyRequest(req, res, appId, req.params[0] || '');
+    });
+  }
+  
+  // For sub-resources, check for auth_token in cookies
+  const token = req.cookies?.ebm_auth_token;
+  if (!token) return res.status(401).json({ error: 'Não autorizado' });
+  
+  // Forward to proxy
+  proxyRequest(req, res, req.params.appId, req.params[0] || '');
+});
+
+// Original route for root app access
+app.all('/api/apps/proxy/:appId', authenticate, (req, res) => {
+  const appId = req.params.appId;
+  proxyRequest(req, res, appId, '');
+});
+
+function proxyRequest(req, res, appId, subPath) {
+  const config = readJSON(path.join(DATA_DIR, 'apps.json'));
+  const appDef = config ? config.available.find(a => a.id === appId) : null;
+  if (!appDef || !appDef.port) return res.status(404).send('App não configurado para proxy');
+
+  // Construct target path
+  let targetPath = '/' + subPath + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+  if (appId === 'jellyfin') {
+    if (subPath === '' || subPath === '/' || subPath === 'jellyfin' || subPath === 'jellyfin/') {
+      targetPath = '/' + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
+    }
+  }
+
+  const options = {
+    hostname: '127.0.0.1',
+    port: appDef.port,
+    path: targetPath,
+    method: req.method,
+    headers: { ...req.headers }
+  };
+  
+  options.headers.host = `127.0.0.1:${appDef.port}`;
+  options.headers.referer = `http://127.0.0.1:${appDef.port}/`;
+  options.headers.origin = `http://127.0.0.1:${appDef.port}`;
+  delete options.headers.connection;
+  
+  const proxyReq = http.request(options, (proxyRes) => {
+    let location = proxyRes.headers.location;
+    if (location) {
+      if (location.startsWith('/')) {
+        proxyRes.headers.location = `/api/apps/proxy/${appId}${location}`;
+      } else if (location.includes(`127.0.0.1:${appDef.port}`)) {
+        proxyRes.headers.location = location.replace(`http://127.0.0.1:${appDef.port}`, `/api/apps/proxy/${appId}`);
+      }
+    }
+    
+    delete proxyRes.headers['content-security-policy'];
+    delete proxyRes.headers['x-frame-options'];
+    delete proxyRes.headers['access-control-allow-origin'];
+    delete proxyRes.headers['content-disposition'];
+    
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    const logMsg = `[${new Date().toISOString()}] PROXY ${appId}: ${targetPath} -> ${proxyRes.statusCode}\n`;
+    try { fs.appendFileSync(path.join(DATA_DIR, 'proxy.log'), logMsg); } catch(e) {}
+
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  
+  proxyReq.on('error', (err) => res.status(502).send('Erro no proxy: ' + err.message));
+  req.pipe(proxyReq);
+}
 
 // SPA fallback
 app.get('*', (req, res) => {
@@ -142,54 +243,4 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   setTimeout(startApps, 2000);
 });
 
-// Reverse Proxy for Apps
-const http = require('http');
-const { authenticate } = require('./middleware/auth');
-
-app.all('/api/apps/proxy/:appId/*', authenticate, (req, res) => {
-  const appId = req.params.appId;
-  
-  // Set cookie if token is in query for future requests from this iframe
-  if (req.query.token) {
-    res.cookie('auth_token', req.query.token, { 
-      path: `/api/apps/proxy/${appId}`, 
-      httpOnly: true,
-      maxAge: 86400000 // 24h
-    });
-  }
-  const { readJSON } = require('./utils/storage');
-  const config = readJSON(path.join(DATA_DIR, 'apps.json'));
-  const appDef = config ? config.available.find(a => a.id === appId) : null;
-  
-  if (!appDef || !appDef.port) return res.status(404).send('App não configurado para proxy');
-
-  const targetPath = '/' + req.params[0] + (req.url.includes('?') ? '?' + req.url.split('?')[1] : '');
-  
-  const options = {
-    hostname: '127.0.0.1',
-    port: appDef.port,
-    path: targetPath,
-    method: req.method,
-    headers: { ...req.headers }
-  };
-  
-  // Clean up headers
-  delete options.headers.host;
-  delete options.headers.connection;
-  
-  const proxyReq = http.request(options, (proxyRes) => {
-    // Rewrite redirects
-    if (proxyRes.headers.location && proxyRes.headers.location.startsWith('/')) {
-      proxyRes.headers.location = `/api/apps/proxy/${appId}${proxyRes.headers.location}`;
-    }
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res);
-  });
-  
-  proxyReq.on('error', (err) => {
-    res.status(502).send('Erro no proxy: ' + err.message);
-  });
-  
-  req.pipe(proxyReq);
-});
 

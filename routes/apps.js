@@ -28,7 +28,8 @@ const DEFAULT_APPS = [
     isLocal: true, 
     port: 8096, 
     installerPath: 'jellyfin_10.11.8-amd64.zip',
-    execPath: 'jellyfin/jellyfin.exe' 
+    execPath: 'jellyfin/jellyfin.exe',
+    args: ['--service', '--datadir', '../data', '--configdir', '../config', '--logdir', '../log', '--cachedir', '../cache']
   }
 ];
 
@@ -144,7 +145,7 @@ router.post('/start/:id', (req, res) => {
   if (!appDef || !appDef.execPath) return res.status(400).json({ error: 'App não executável' });
   
   try {
-    appsManager.spawnApp(appId, appDef.execPath);
+    appsManager.spawnApp(appId, appDef.execPath, appDef.args || []);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
