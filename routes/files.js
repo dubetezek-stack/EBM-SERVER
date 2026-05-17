@@ -161,16 +161,89 @@ router.get('/list', (req, res) => {
 // Download/Preview use resolvePath which is already safe, but let's add the Read check
 router.get('/download', (req, res) => {
   const { driveId, subpath } = req.query;
-  const resolved = resolvePath(driveId, subpath, req.user);
-  if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
+  if (!subpath) return res.status(400).json({ error: 'Caminho não fornecido' });
 
-  if (!resolved.permissions.read) return res.status(403).json({ error: 'Acesso negado' });
-
-  if (!fs.existsSync(resolved.fullPath) || fs.statSync(resolved.fullPath).isDirectory()) {
-    return res.status(404).json({ error: 'Arquivo não encontrado' });
+  let subpaths = [];
+  try {
+    subpaths = JSON.parse(subpath);
+    if (!Array.isArray(subpaths)) subpaths = [subpath];
+  } catch (e) {
+    subpaths = [subpath];
   }
 
-  res.download(resolved.fullPath);
+  if (subpaths.length === 0) {
+    return res.status(400).json({ error: 'Nenhum arquivo selecionado' });
+  }
+
+  // Single Item Download
+  if (subpaths.length === 1) {
+    const itemPath = subpaths[0];
+    const resolved = resolvePath(driveId, itemPath, req.user);
+    if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
+    if (!resolved.permissions.read) return res.status(403).json({ error: 'Acesso negado' });
+
+    if (!fs.existsSync(resolved.fullPath)) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    const stat = fs.statSync(resolved.fullPath);
+    if (stat.isDirectory()) {
+      try {
+        const AdmZip = require('adm-zip');
+        const zip = new AdmZip();
+        zip.addLocalFolder(resolved.fullPath);
+        
+        const folderName = path.basename(resolved.fullPath) || 'folder';
+        const zipBuffer = zip.toBuffer();
+        
+        res.setHeader('Content-Type', 'application/zip');
+        const safeFolderName = encodeURIComponent(folderName);
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFolderName}.zip"; filename*=UTF-8''${safeFolderName}.zip`);
+        res.setHeader('Content-Length', zipBuffer.length);
+        return res.send(zipBuffer);
+      } catch (e) {
+        return res.status(500).json({ error: 'Erro ao compactar pasta: ' + e.message });
+      }
+    }
+
+    return res.download(resolved.fullPath);
+  }
+
+  // Multiple Items Download - Zip them all together
+  try {
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip();
+    let filesAddedCount = 0;
+
+    for (const itemPath of subpaths) {
+      const resolved = resolvePath(driveId, itemPath, req.user);
+      if (!resolved || !resolved.permissions.read || !fs.existsSync(resolved.fullPath)) continue;
+
+      const stat = fs.statSync(resolved.fullPath);
+      const baseName = path.basename(resolved.fullPath);
+
+      if (stat.isDirectory()) {
+        zip.addLocalFolder(resolved.fullPath, baseName);
+        filesAddedCount++;
+      } else {
+        zip.addLocalFile(resolved.fullPath);
+        filesAddedCount++;
+      }
+    }
+
+    if (filesAddedCount === 0) {
+      return res.status(404).json({ error: 'Nenhum dos arquivos selecionados foi encontrado' });
+    }
+
+    const zipBuffer = zip.toBuffer();
+    res.setHeader('Content-Type', 'application/zip');
+    const zipName = `selecao_${Date.now()}.zip`;
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+    return res.send(zipBuffer);
+  } catch (e) {
+    return res.status(500).json({ error: 'Erro ao compactar itens selecionados: ' + e.message });
+  }
 });
 
 router.get('/preview', (req, res) => {
@@ -263,15 +336,49 @@ const upload = multer({
       if (!resolved.permissions.upload) {
         return cb(new Error('Você não possui permissão para enviar arquivos para este drive'));
       }
-      cb(null, resolved.fullPath);
+      
+      const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+      const normalizedPath = originalName.replace(/\\/g, '/');
+      const dirPart = path.dirname(normalizedPath);
+      
+      let destDir = resolved.fullPath;
+      if (dirPart && dirPart !== '.') {
+        destDir = path.join(resolved.fullPath, dirPart);
+        // Security check: ensure target directory is within the drive base path
+        const resolvedDest = path.resolve(destDir);
+        const parentPath = resolved.fullPath.endsWith(path.sep) ? resolved.fullPath : resolved.fullPath + path.sep;
+        if (!resolvedDest.startsWith(parentPath)) {
+          return cb(new Error('Caminho de destino inválido'));
+        }
+        
+        // Create directory recursively
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+      }
+      
+      cb(null, destDir);
     },
     filename: (req, file, cb) => {
       const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-      const destPath = path.join(req.uploadDest || '', originalName);
+      const normalizedPath = originalName.replace(/\\/g, '/');
+      const baseName = path.basename(normalizedPath);
+      const dirPart = path.dirname(normalizedPath);
+      
+      const { driveId, subpath } = req.query;
+      const resolved = resolvePath(driveId, subpath || '', req.user);
+      if (!resolved) return cb(new Error('Acesso negado'));
+      
+      let destDir = resolved.fullPath;
+      if (dirPart && dirPart !== '.') {
+        destDir = path.join(resolved.fullPath, dirPart);
+      }
+      
+      const destPath = path.join(destDir, baseName);
       if (fs.existsSync(destPath)) {
-        const ext = path.extname(originalName);
-        cb(null, `${path.basename(originalName, ext)}_${Date.now()}${ext}`);
-      } else { cb(null, originalName); }
+        const ext = path.extname(baseName);
+        cb(null, `${path.basename(baseName, ext)}_${Date.now()}${ext}`);
+      } else { cb(null, baseName); }
     }
   }),
   limits: { fileSize: 500 * 1024 * 1024 } // 500MB max
@@ -283,7 +390,7 @@ router.post('/upload', (req, res) => {
   if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
 
   req.uploadDest = resolved.fullPath;
-  upload.array('files', 20)(req, res, (err) => {
+  upload.array('files', 1000)(req, res, (err) => {
     if (err) return res.status(403).json({ error: err.message });
     res.json({ success: true, files: (req.files || []).map(f => f.filename) });
   });
@@ -292,24 +399,59 @@ router.post('/upload', (req, res) => {
 // Delete file or folder (Respecting Delete Permission)
 router.delete('/delete', (req, res) => {
   const { driveId, subpath } = req.query;
-  const resolved = resolvePath(driveId, subpath, req.user);
-  if (!resolved) return res.status(403).json({ error: 'Acesso negado' });
-
-  // Permission Check: Delete
-  if (!resolved.permissions.delete) {
-    return res.status(403).json({ error: 'Você não possui permissão para apagar arquivos neste drive' });
+  if (!subpath) return res.status(400).json({ error: 'Caminho não fornecido' });
+  
+  let subpaths = [];
+  try {
+    subpaths = JSON.parse(subpath);
+    if (!Array.isArray(subpaths)) subpaths = [subpath];
+  } catch (e) {
+    subpaths = [subpath];
   }
 
-  if (isProtectedPath(resolved.fullPath)) return res.status(403).json({ error: 'Protegido pelo sistema' });
-  if (resolved.fullPath === resolved.basePath) return res.status(403).json({ error: 'Não pode apagar raiz' });
-  if (!fs.existsSync(resolved.fullPath)) return res.status(404).json({ error: 'Não encontrado' });
+  const errors = [];
+  const deleted = [];
 
-  try {
-    const stat = fs.statSync(resolved.fullPath);
-    if (stat.isDirectory()) fs.rmSync(resolved.fullPath, { recursive: true, force: true });
-    else fs.unlinkSync(resolved.fullPath);
-    res.json({ success: true, message: 'Apagado com sucesso' });
-  } catch (e) { res.status(500).json({ error: 'Erro ao apagar: ' + e.message }); }
+  for (const pathItem of subpaths) {
+    const resolved = resolvePath(driveId, pathItem, req.user);
+    if (!resolved) {
+      errors.push(`${pathItem}: Acesso negado`);
+      continue;
+    }
+
+    if (!resolved.permissions.delete) {
+      errors.push(`${pathItem}: Sem permissão para apagar`);
+      continue;
+    }
+
+    if (isProtectedPath(resolved.fullPath) || resolved.fullPath === resolved.basePath) {
+      errors.push(`${pathItem}: Protegido pelo sistema`);
+      continue;
+    }
+
+    if (!fs.existsSync(resolved.fullPath)) {
+      errors.push(`${pathItem}: Não encontrado`);
+      continue;
+    }
+
+    try {
+      const stat = fs.statSync(resolved.fullPath);
+      if (stat.isDirectory()) fs.rmSync(resolved.fullPath, { recursive: true, force: true });
+      else fs.unlinkSync(resolved.fullPath);
+      deleted.push(pathItem);
+    } catch (err) {
+      errors.push(`${pathItem}: ${err.message}`);
+    }
+  }
+
+  if (errors.length > 0 && deleted.length === 0) {
+    return res.status(400).json({ error: 'Erro ao apagar itens: ' + errors.join(', ') });
+  }
+
+  res.json({ 
+    success: true, 
+    message: errors.length > 0 ? `Itens apagados com ressalvas: ${deleted.length} apagados, ${errors.length} falharam.` : 'Itens apagados com sucesso' 
+  });
 });
 
 // Create new folder (Respecting Upload Permission)

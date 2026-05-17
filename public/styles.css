@@ -2196,3 +2196,105 @@ input:checked + .slider:before { transform: translateX(20px); }
   z-index: 200;
 }
 
+/* ===== CUSTOM CONTEXT MENU ===== */
+.custom-context-menu {
+  position: fixed;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 170px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: contextMenuEnter 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes contextMenuEnter {
+  from { opacity: 0; transform: scale(0.96) translateY(-5px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: var(--transition);
+}
+
+.context-menu-item:hover {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+.context-menu-item.danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.context-menu-item svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.8;
+  color: currentColor;
+}
+
+.context-menu-sep {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 6px;
+}
+
+/* ===== ROW MULTI-SELECT CHECKBOX HIGHLIGHT ===== */
+.file-row.selected {
+  background: rgba(0, 120, 212, 0.15) !important;
+}
+
+.file-row.selected:hover {
+  background: rgba(0, 120, 212, 0.25) !important;
+}
+
+.file-checkbox {
+  accent-color: var(--accent-blue);
+  opacity: 0.15;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  cursor: pointer;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0;
+}
+
+.file-row:hover .file-checkbox {
+  opacity: 0.65;
+}
+
+.file-checkbox:checked {
+  opacity: 1 !important;
+  transform: scale(1.05);
+}
+
+#select-all-files {
+  accent-color: var(--accent-blue);
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0;
+}
+
+.file-table th:hover #select-all-files,
+#select-all-files:checked {
+  opacity: 1;
+}
+

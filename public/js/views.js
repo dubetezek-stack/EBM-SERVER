@@ -26,6 +26,13 @@ function renderExplorer(user) {
       '<div class="search-box">' + Icons.search + '<input id="search-input" placeholder="Buscar neste diretório..." autocomplete="off"></div>' + 
       '<button class="toolbar-btn" id="btn-upload" style="display:none">' + Icons.upload + ' <span>Upload</span></button>' + 
       '<button class="toolbar-btn" id="btn-new-folder" style="display:none">' + Icons.folderPlus + ' <span>Nova Pasta</span></button>' + 
+      '<div id="bulk-actions-wrapper" style="display:none; align-items:center; gap:8px">' +
+        '<div class="toolbar-sep"></div>' +
+        '<span style="font-size:13px; font-weight:600; color:var(--accent)" id="bulk-selected-count">0</span>' +
+        '<button class="toolbar-btn" id="btn-bulk-download" style="color:var(--accent)">' + Icons.download + ' <span>Baixar</span></button>' +
+        '<button class="toolbar-btn" id="btn-bulk-delete" style="color:#ff6b6b">' + Icons.trash + ' <span>Apagar</span></button>' +
+        '<button class="toolbar-btn" id="btn-bulk-clear" style="padding:6px; min-width:auto" title="Desmarcar Todos">' + Icons.close + '</button>' +
+      '</div>' +
     '</div>' + 
     renderUploadZone() +
     '<div class="content-area" id="content-area"><div class="loading"><div class="spinner"></div></div></div>' + 
@@ -149,26 +156,46 @@ function renderFileList(files, driveId, subpath, drivePermissions) {
     canRename = true;
   }
 
-  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + (canDelete || canRename ? '<th style="width:' + (canDelete && canRename ? '80px' : '40px') + '"></th>' : '') + '</tr></thead><tbody>';
+  var actionsColWidth = 64 + (canRename ? 36 : 0) + (canDelete ? 36 : 0);
+
+  var html = '<div class="file-table-wrapper"><table class="file-table"><thead><tr>' + 
+             '<th data-sort="name">Nome <span class="sort-icon">▲</span></th>' + 
+             '<th data-sort="date">Data de modificação <span class="sort-icon">▲</span></th>' + 
+             '<th data-sort="type">Tipo <span class="sort-icon">▲</span></th>' + 
+             '<th data-sort="size">Tamanho <span class="sort-icon">▲</span></th>' + 
+             '<th style="width:' + actionsColWidth + 'px; text-align:center"><div style="display:inline-flex; align-items:center; gap:8px"><input type="checkbox" id="select-all-files" style="cursor:pointer; width:16px; height:16px; margin:0" title="Selecionar Todos"></div></th>' + 
+             '</tr></thead><tbody>';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
     var filePath = subpath ? subpath + '/' + f.name : f.name;
-    html += '<tr class="file-row" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" data-size="' + (f.size || 0) + '">' + 
+    html += '<tr class="file-row" draggable="false" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" data-size="' + (f.size || 0) + '">' + 
             '<td><div class="file-name-cell"><div class="file-icon">' + getFileIcon(f) + '</div><span class="file-name">' + escapeHtml(f.name) + '</span></div></td>' + 
             '<td class="file-date">' + formatDate(f.modified) + '</td>' + 
             '<td class="file-type">' + escapeHtml(f.isDirectory ? 'Pasta' : (f.extension || '').toUpperCase().replace('.', '') || 'Arquivo') + '</td>' + 
             '<td class="file-size">' + (f.isDirectory ? '' : formatSize(f.size)) + '</td>' + 
-            (canRename || canDelete ? '<td><div style="display:flex;gap:4px">' + 
+            '<td><div style="display:flex; align-items:center; gap:6px">' + 
+              '<input type="checkbox" class="file-checkbox" style="cursor:pointer; width:16px; height:16px; margin:0" title="Selecionar">' +
+              '<button class="btn-icon btn-download-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Baixar">' + Icons.download + '</button>' +
               (canRename ? '<button class="btn-icon btn-rename-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" title="Renomear">' + Icons.edit + '</button>' : '') + 
               (canDelete ? '<button class="btn-icon btn-delete-file" data-name="' + escapeHtml(f.name) + '" data-drive-id="' + driveId + '" data-subpath="' + escapeHtml(filePath) + '" data-is-dir="' + (f.isDirectory ? 'true' : 'false') + '" title="Apagar">' + Icons.trash + '</button>' : '') + 
-            '</div></td>' : '') + '</tr>';
+            '</div></td>' + '</tr>';
   }
   html += '</tbody></table></div>';
   return html;
 }
 
 function renderUploadZone() {
-  return '<div class="upload-zone" id="upload-zone">' + Icons.upload + '<p>Arraste arquivos aqui ou clique para fazer upload</p>' + '<input type="file" id="upload-input" multiple style="display:none">' + '</div>';
+  return '<div class="upload-zone" id="upload-zone">' + 
+    '<div style="font-size: 36px; color: var(--text-muted); margin-bottom: 12px; display: flex; align-items: center; justify-content: center;">' + Icons.upload + '</div>' + 
+    '<p style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Arraste arquivos ou pastas completas aqui</p>' + 
+    '<p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">ou escolha uma opção abaixo para selecionar manualmente:</p>' + 
+    '<div style="display: flex; gap: 12px; justify-content: center; align-items: center; position: relative; z-index: 10;">' + 
+      '<button class="btn btn-secondary btn-sm" id="btn-upload-files" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; font-weight: 600; font-size: 12px; border-radius: var(--radius); cursor: pointer;">' + Icons.file + ' Escolher Arquivos</button>' + 
+      '<button class="btn btn-secondary btn-sm" id="btn-upload-folder" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; font-weight: 600; font-size: 12px; border-radius: var(--radius); cursor: pointer;">' + Icons.folder + ' Escolher Pasta</button>' + 
+    '</div>' + 
+    '<input type="file" id="upload-input" multiple style="display:none">' + 
+    '<input type="file" id="upload-folder-input" webkitdirectory directory multiple style="display:none">' + 
+  '</div>';
 }
 
 function renderDesktopIcons(installedApps) {

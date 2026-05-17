@@ -109,7 +109,18 @@ var API = {
     var self = this;
     return new Promise(function (resolve, reject) {
       var fd = new FormData();
-      for (var i = 0; i < files.length; i++) fd.append('files', files[i]);
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i];
+        var relativePath = '';
+        if (file.webkitRelativePath) {
+          relativePath = file.webkitRelativePath;
+        } else if (file.relativeFolder) {
+          relativePath = file.relativeFolder + '/' + file.name;
+        } else {
+          relativePath = file.name;
+        }
+        fd.append('files', file, relativePath);
+      }
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/files/upload?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath || ''));
       if (self.token) xhr.setRequestHeader('Authorization', 'Bearer ' + self.token);

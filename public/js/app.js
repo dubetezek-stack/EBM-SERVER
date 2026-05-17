@@ -1801,11 +1801,121 @@ var App = /*#__PURE__*/function () {
 
   _proto.bindFileActions = function bindFileActions(driveId, subpath) {
     var self = this;
+
+    var role = getUserRole();
+    var isAdmin = role === 'admin';
+    var canDelete = isAdmin;
+    var canRename = isAdmin;
+    if (!isAdmin && self.currentDrivePermissions) {
+      canDelete = !!self.currentDrivePermissions.delete;
+      canRename = !!self.currentDrivePermissions.upload;
+    } else if (!isAdmin && role === 'master') {
+      canDelete = true;
+      canRename = true;
+    }
+
+    // Hide bulk delete button in toolbar if user lacks delete permission
+    var btnBulkDelete = document.getElementById('btn-bulk-delete');
+    if (btnBulkDelete) {
+      btnBulkDelete.style.display = canDelete ? 'flex' : 'none';
+    }
+
+    // Reset selection state and context menus on navigate
+    var oldMenu = document.querySelector('.custom-context-menu');
+    if (oldMenu) oldMenu.remove();
+    var bulkBar = document.getElementById('bulk-actions-wrapper');
+    if (bulkBar) bulkBar.style.display = 'none';
+
+    function updateSelectionState() {
+      var selectedRows = document.querySelectorAll('.file-row.selected');
+      var count = selectedRows.length;
+      var bar = document.getElementById('bulk-actions-wrapper');
+      var countLabel = document.getElementById('bulk-selected-count');
+      var selectAllCheckbox = document.getElementById('select-all-files');
+      
+      if (bar && countLabel) {
+        if (count > 0) {
+          bar.style.display = 'flex';
+          countLabel.textContent = count + (count === 1 ? ' item selecionado' : ' itens selecionados');
+        } else {
+          bar.style.display = 'none';
+        }
+      }
+      
+      if (selectAllCheckbox) {
+        var allCheckboxes = document.querySelectorAll('.file-checkbox');
+        var checkedCount = 0;
+        allCheckboxes.forEach(function(cb) { if (cb.checked) checkedCount++; });
+        selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+      }
+    }
+
+    function getSelectedPaths() {
+      var paths = [];
+      document.querySelectorAll('.file-row.selected').forEach(function(row) {
+        paths.push(row.getAttribute('data-subpath'));
+      });
+      return paths;
+    }
+
+    // Bind Select All Checkbox
+    var selectAllCheckbox = document.getElementById('select-all-files');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.onchange = function() {
+        var checked = this.checked;
+        document.querySelectorAll('.file-row').forEach(function(row) {
+          row.classList.toggle('selected', checked);
+          var cb = row.querySelector('.file-checkbox');
+          if (cb) cb.checked = checked;
+        });
+        updateSelectionState();
+      };
+    }
+
+    // Bind Single Row Checkboxes
+    document.querySelectorAll('.file-checkbox').forEach(function(cb) {
+      cb.onclick = function(e) {
+        e.stopPropagation();
+        var row = this.closest('.file-row');
+        if (row) {
+          row.classList.toggle('selected', this.checked);
+        }
+        updateSelectionState();
+      };
+    });
+
     document.querySelectorAll('.file-row').forEach(function (el) {
+      // Dynamic draggable toggle based on hovering name cell
+      var nameCell = el.querySelector('.file-name-cell');
+      if (nameCell) {
+        nameCell.onmouseenter = function() {
+          el.setAttribute('draggable', 'true');
+        };
+        nameCell.onmouseleave = function() {
+          el.setAttribute('draggable', 'false');
+        };
+      }
+
+      // Row click selection or navigate/preview
       el.onclick = function (e) {
-        if (e.target.closest('.btn-delete-file') || e.target.closest('.btn-rename-file')) return;
+        if (e.target.closest('.btn-icon') || e.target.closest('.file-checkbox')) return;
+        
+        var checkbox = this.querySelector('.file-checkbox');
         var name = this.getAttribute('data-name');
         var isDir = this.getAttribute('data-is-dir') === 'true';
+        
+        // If selection mode is active, row click toggles selection
+        var selectedCount = document.querySelectorAll('.file-row.selected').length;
+        if (selectedCount > 0) {
+          var isSelected = !this.classList.contains('selected');
+          this.classList.toggle('selected', isSelected);
+          if (checkbox) checkbox.checked = isSelected;
+          updateSelectionState();
+          return;
+        }
+        
+        // Standard Navigation/Preview
         if (isDir) {
           var newPath = subpath ? subpath + '/' + name : name;
           self.navigate('explorer', { driveId: driveId, subpath: newPath });
@@ -1815,7 +1925,275 @@ var App = /*#__PURE__*/function () {
           self.previewFile(driveId, filePath, { name: name, size: size });
         }
       };
+
+      // Multi-drag supporting dragging single or multiple zipped items to desktop
+      el.ondragstart = function (e) {
+        var name = this.getAttribute('data-name');
+        var isDir = this.getAttribute('data-is-dir') === 'true';
+        var driveId = this.getAttribute('data-drive-id');
+        var subpath = this.getAttribute('data-subpath');
+        
+        var isSelected = this.classList.contains('selected');
+        var selectedPaths = getSelectedPaths();
+        
+        var mimeType, filename, downloadUrl;
+        
+        if (isSelected && selectedPaths.length > 1) {
+          mimeType = 'application/zip';
+          filename = 'selecao_' + Date.now() + '.zip';
+          downloadUrl = window.location.origin + '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(JSON.stringify(selectedPaths)) + '&token=' + API.token;
+        } else {
+          var ext = isDir ? '.zip' : '';
+          filename = name + ext;
+          mimeType = isDir ? 'application/zip' : 'application/octet-stream';
+          downloadUrl = window.location.origin + '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath) + '&token=' + API.token;
+        }
+        
+        e.dataTransfer.setData('DownloadURL', mimeType + ':' + filename + ':' + downloadUrl);
+      };
+
+      // Premium Desktop-grade Right Click Context Menu
+      el.oncontextmenu = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        var row = this;
+        var name = row.getAttribute('data-name');
+        var isDir = row.getAttribute('data-is-dir') === 'true';
+        var rowDriveId = row.getAttribute('data-drive-id');
+        var rowSubpath = row.getAttribute('data-subpath');
+        
+        // Auto-select row if not selected
+        if (!row.classList.contains('selected')) {
+          if (!e.ctrlKey && !e.metaKey) {
+            document.querySelectorAll('.file-row').forEach(function(r) {
+              r.classList.remove('selected');
+              var cb = r.querySelector('.file-checkbox');
+              if (cb) cb.checked = false;
+            });
+          }
+          row.classList.add('selected');
+          var checkbox = row.querySelector('.file-checkbox');
+          if (checkbox) checkbox.checked = true;
+          updateSelectionState();
+        }
+        
+        var oldMenu = document.querySelector('.custom-context-menu');
+        if (oldMenu) oldMenu.remove();
+        
+        var selectedPaths = getSelectedPaths();
+        var isMulti = selectedPaths.length > 1;
+        
+        var menu = document.createElement('div');
+        menu.className = 'custom-context-menu';
+        menu.style.left = e.clientX + 'px';
+        menu.style.top = e.clientY + 'px';
+        
+        var items = [];
+        
+        if (!isMulti) {
+          items.push({
+            text: isDir ? 'Abrir Pasta' : 'Abrir / Visualizar',
+            icon: isDir ? Icons.explorer : Icons.file,
+            action: function() {
+              if (isDir) {
+                var newPath = subpath ? subpath + '/' + name : name;
+                self.navigate('explorer', { driveId: rowDriveId, subpath: newPath });
+              } else {
+                var size = parseInt(row.getAttribute('data-size')) || 0;
+                self.previewFile(rowDriveId, rowSubpath, { name: name, size: size });
+              }
+            }
+          });
+          
+          items.push({
+            text: 'Baixar Item',
+            icon: Icons.download,
+            action: function() {
+              var downloadUrl = '/api/files/download?driveId=' + rowDriveId + '&subpath=' + encodeURIComponent(rowSubpath) + '&token=' + API.token;
+              var a = document.createElement('a');
+              a.href = downloadUrl;
+              a.download = isDir ? name + '.zip' : name;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }
+          });
+          
+          if (canRename || canDelete) {
+            items.push({ type: 'separator' });
+          }
+          
+          if (canRename) {
+            items.push({
+              text: 'Renomear',
+              icon: Icons.edit,
+              action: function() {
+                var renameBtn = row.querySelector('.btn-rename-file');
+                if (renameBtn) renameBtn.click();
+              }
+            });
+          }
+          
+          if (canDelete) {
+            items.push({
+              text: 'Apagar',
+              icon: Icons.trash,
+              class: 'danger',
+              action: function() {
+                var deleteBtn = row.querySelector('.btn-delete-file');
+                if (deleteBtn) deleteBtn.click();
+              }
+            });
+          }
+        } else {
+          // Multi actions
+          items.push({
+            text: 'Baixar Seleção (' + selectedPaths.length + ')',
+            icon: Icons.download,
+            action: function() {
+              var bulkDownloadBtn = document.getElementById('btn-bulk-download');
+              if (bulkDownloadBtn) bulkDownloadBtn.click();
+            }
+          });
+          
+          if (canDelete) {
+            items.push({
+              text: 'Apagar Seleção (' + selectedPaths.length + ')',
+              icon: Icons.trash,
+              class: 'danger',
+              action: function() {
+                var bulkDeleteBtn = document.getElementById('btn-bulk-delete');
+                if (bulkDeleteBtn) bulkDeleteBtn.click();
+              }
+            });
+          }
+        }
+        
+        items.push({ type: 'separator' });
+        items.push({
+          text: 'Selecionar Tudo',
+          icon: Icons.add,
+          action: function() {
+            document.querySelectorAll('.file-row').forEach(function(r) {
+              r.classList.add('selected');
+              var cb = r.querySelector('.file-checkbox');
+              if (cb) cb.checked = true;
+            });
+            updateSelectionState();
+          }
+        });
+        
+        items.forEach(function(item) {
+          if (item.type === 'separator') {
+            var sep = document.createElement('div');
+            sep.className = 'context-menu-sep';
+            menu.appendChild(sep);
+          } else {
+            var elItem = document.createElement('div');
+            elItem.className = 'context-menu-item' + (item.class ? ' ' + item.class : '');
+            elItem.innerHTML = item.icon + '<span>' + item.text + '</span>';
+            elItem.onclick = function() {
+              menu.remove();
+              item.action();
+            };
+            menu.appendChild(elItem);
+          }
+        });
+        
+        document.body.appendChild(menu);
+        
+        // Prevent offscreen positioning
+        var rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) {
+          menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
+        }
+        if (rect.bottom > window.innerHeight) {
+          menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+        }
+      };
     });
+
+    // Bind direct download buttons
+    document.querySelectorAll('.btn-download-file').forEach(function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        var name = this.getAttribute('data-name');
+        var isDir = this.getAttribute('data-is-dir') === 'true';
+        var driveId = this.getAttribute('data-drive-id');
+        var subpath = this.getAttribute('data-subpath');
+        
+        var downloadUrl = '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(subpath) + '&token=' + API.token;
+        
+        var a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = isDir ? name + '.zip' : name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+    });
+
+    // Bind Bulk Toolbar actions
+    var btnBulkClear = document.getElementById('btn-bulk-clear');
+    if (btnBulkClear) {
+      btnBulkClear.onclick = function() {
+        document.querySelectorAll('.file-row').forEach(function(row) {
+          row.classList.remove('selected');
+          var cb = row.querySelector('.file-checkbox');
+          if (cb) cb.checked = false;
+        });
+        updateSelectionState();
+      };
+    }
+    
+    var btnBulkDownload = document.getElementById('btn-bulk-download');
+    if (btnBulkDownload) {
+      btnBulkDownload.onclick = function() {
+        var selectedPaths = getSelectedPaths();
+        if (selectedPaths.length === 0) return;
+        
+        var downloadUrl = '/api/files/download?driveId=' + driveId + '&subpath=' + encodeURIComponent(JSON.stringify(selectedPaths)) + '&token=' + API.token;
+        var a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'selecao_' + Date.now() + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
+    }
+    
+    var btnBulkDelete = document.getElementById('btn-bulk-delete');
+    if (btnBulkDelete) {
+      btnBulkDelete.onclick = function() {
+        var selectedPaths = getSelectedPaths();
+        if (selectedPaths.length === 0) return;
+        
+        if (confirm('Tem certeza que deseja apagar os ' + selectedPaths.length + ' itens selecionados? Esta ação não pode ser desfeita.')) {
+          API.del('/files/delete?driveId=' + driveId + '&subpath=' + encodeURIComponent(JSON.stringify(selectedPaths)))
+            .then(function() {
+              showToast(selectedPaths.length + ' itens apagados com sucesso', 'success');
+              var selectAllCheckbox = document.getElementById('select-all-files');
+              if (selectAllCheckbox) selectAllCheckbox.checked = false;
+              self.loadFiles(driveId, self.currentPath);
+            })
+            .catch(function(err) {
+              showToast(err.message, 'error');
+            });
+        }
+      };
+    }
+
+    // Dismiss context menu on left click globally
+    if (!window._contextMenuGlobalBound) {
+      window._contextMenuGlobalBound = true;
+      document.addEventListener('click', function(e) {
+        if (!e.target.closest('.custom-context-menu')) {
+          var menu = document.querySelector('.custom-context-menu');
+          if (menu) menu.remove();
+        }
+      });
+    }
 
     // Bind delete buttons
     document.querySelectorAll('.btn-delete-file').forEach(function (btn) {
@@ -1852,6 +2230,98 @@ var App = /*#__PURE__*/function () {
         }
       };
     });
+
+    // Premium Drag Selection Marquee (Windows Explorer Style)
+    var contentArea = document.getElementById('content-area');
+    if (contentArea) {
+      var isSelecting = false;
+      var startX = 0, startY = 0;
+      var selectionBox = null;
+      
+      var onMouseMove = function (e) {
+        if (!isSelecting || !selectionBox) return;
+        
+        var currentX = e.clientX;
+        var currentY = e.clientY;
+        
+        var x = Math.min(startX, currentX);
+        var y = Math.min(startY, currentY);
+        var w = Math.abs(startX - currentX);
+        var h = Math.abs(startY - currentY);
+        
+        selectionBox.style.left = x + 'px';
+        selectionBox.style.top = y + 'px';
+        selectionBox.style.width = w + 'px';
+        selectionBox.style.height = h + 'px';
+        
+        // Dynamic collision detection with file rows
+        document.querySelectorAll('.file-row').forEach(function(row) {
+          var rect = row.getBoundingClientRect();
+          var overlaps = !(rect.right < x || rect.left > x + w || rect.bottom < y || rect.top > y + h);
+          
+          row.classList.toggle('selected', overlaps);
+          var cb = row.querySelector('.file-checkbox');
+          if (cb) cb.checked = overlaps;
+        });
+        
+        updateSelectionState();
+      };
+      
+      var onMouseUp = function (e) {
+        if (isSelecting) {
+          isSelecting = false;
+          if (selectionBox) {
+            selectionBox.remove();
+            selectionBox = null;
+          }
+          updateSelectionState();
+        }
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      contentArea.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return; // Only left click
+        
+        // Ignore if clicking checkboxes, buttons, inputs, context menus, or exactly the file name/icon cell
+        if (e.target.closest('.file-checkbox') || e.target.closest('.btn-icon') || e.target.closest('.toolbar-btn') || e.target.closest('#search-input') || e.target.closest('.custom-context-menu') || e.target.closest('.file-name-cell') || e.target.closest('.file-icon')) {
+          return;
+        }
+        
+        isSelecting = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        
+        // Clear selection unless holding Ctrl/Shift
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+          document.querySelectorAll('.file-row').forEach(function(row) {
+            row.classList.remove('selected');
+            var cb = row.querySelector('.file-checkbox');
+            if (cb) cb.checked = false;
+          });
+          updateSelectionState();
+        }
+        
+        // Create blue glassmorphic marquee box
+        selectionBox = document.createElement('div');
+        selectionBox.className = 'selection-marquee';
+        selectionBox.style.position = 'fixed';
+        selectionBox.style.border = '1px solid var(--accent-blue)';
+        selectionBox.style.background = 'rgba(0, 120, 212, 0.18)';
+        selectionBox.style.pointerEvents = 'none';
+        selectionBox.style.zIndex = '99999';
+        selectionBox.style.left = startX + 'px';
+        selectionBox.style.top = startY + 'px';
+        selectionBox.style.width = '0px';
+        selectionBox.style.height = '0px';
+        document.body.appendChild(selectionBox);
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        
+        e.preventDefault();
+      });
+    }
   };
 
   _proto.bindBrowseForElement = function (idField, btnId) {
@@ -2000,10 +2470,86 @@ var App = /*#__PURE__*/function () {
     if (!zone) return;
 
     var input = zone.querySelector('#upload-input');
-    zone.onclick = function () { if (input) input.click(); };
+    var folderInput = zone.querySelector('#upload-folder-input');
+    var btnFiles = zone.querySelector('#btn-upload-files');
+    var btnFolder = zone.querySelector('#btn-upload-folder');
+
+    // Recursive directory traversal for Drag & Drop
+    function traverseDirectory(entry, path) {
+      path = path || '';
+      return new Promise(function (resolve) {
+        if (entry.isFile) {
+          entry.file(function (file) {
+            file.relativeFolder = path;
+            resolve([file]);
+          }, function () {
+            resolve([]);
+          });
+        } else if (entry.isDirectory) {
+          var dirReader = entry.createReader();
+          var allEntries = [];
+
+          function readAllEntries() {
+            dirReader.readEntries(function (entries) {
+              if (entries.length === 0) {
+                var promises = allEntries.map(function (childEntry) {
+                  return traverseDirectory(childEntry, path ? path + '/' + entry.name : entry.name);
+                });
+                Promise.all(promises).then(function (results) {
+                  var files = [];
+                  results.forEach(function (res) {
+                    files = files.concat(res);
+                  });
+                  resolve(files);
+                });
+              } else {
+                allEntries = allEntries.concat(entries);
+                readAllEntries();
+              }
+            }, function () {
+              resolve([]);
+            });
+          }
+
+          readAllEntries();
+        } else {
+          resolve([]);
+        }
+      });
+    }
+
+    zone.onclick = function (e) {
+      // Don't trigger if click was inside buttons
+      if (e.target.closest('#btn-upload-files') || e.target.closest('#btn-upload-folder')) {
+        return;
+      }
+      if (input) input.click();
+    };
+
+    if (btnFiles && input) {
+      btnFiles.onclick = function (e) {
+        e.stopPropagation();
+        input.click();
+      };
+    }
+
+    if (btnFolder && folderInput) {
+      btnFolder.onclick = function (e) {
+        e.stopPropagation();
+        folderInput.click();
+      };
+    }
 
     if (input) {
       input.onchange = function (e) {
+        var files = e.target.files;
+        if (!files || !files.length) return;
+        self.uploadFiles(files);
+      };
+    }
+
+    if (folderInput) {
+      folderInput.onchange = function (e) {
         var files = e.target.files;
         if (!files || !files.length) return;
         self.uploadFiles(files);
@@ -2014,19 +2560,55 @@ var App = /*#__PURE__*/function () {
       e.preventDefault();
       if (!self.currentDrivePermissions || !self.currentDrivePermissions.upload) return;
       zone.classList.add('drag-over');
+      zone.classList.add('dragover');
     };
 
     zone.ondragleave = function (e) {
       e.preventDefault();
       zone.classList.remove('drag-over');
+      zone.classList.remove('dragover');
     };
 
     zone.ondrop = function (e) {
       e.preventDefault();
       zone.classList.remove('drag-over');
+      zone.classList.remove('dragover');
       if (!self.currentDrivePermissions || !self.currentDrivePermissions.upload) {
         return showToast('Você não possui permissão para enviar arquivos para este drive', 'warning');
       }
+
+      var items = e.dataTransfer.items;
+      if (items && items.length) {
+        var promises = [];
+        for (var i = 0; i < items.length; i++) {
+          var item = items[i];
+          if (typeof item.webkitGetAsEntry === 'function') {
+            var entry = item.webkitGetAsEntry();
+            if (entry) {
+              promises.push(traverseDirectory(entry));
+            }
+          }
+        }
+
+        if (promises.length) {
+          showToast('Processando pastas e arquivos...', 'info');
+          Promise.all(promises).then(function (results) {
+            var allFiles = [];
+            results.forEach(function (res) {
+              allFiles = allFiles.concat(res);
+            });
+            if (allFiles.length) {
+              self.uploadFiles(allFiles);
+            } else {
+              showToast('Nenhum arquivo válido encontrado para upload', 'warning');
+            }
+          }).catch(function (err) {
+            showToast('Erro ao processar itens: ' + err.message, 'error');
+          });
+          return;
+        }
+      }
+
       var files = e.dataTransfer.files;
       if (!files || !files.length) return;
       self.uploadFiles(files);
