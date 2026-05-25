@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VELOFLUX // GPX Ride Analytics Dashboard</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="An interactive, premium GPX cycling ride visualizer. Analyze speed, elevation, power, cadence, heart rate, and temperature with beautiful maps, charts, and ride playback.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  
+  <!-- Custom Styling -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="dark-theme">
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <i data-lucide="activity" class="glow-icon"></i>
+        </div>
+        <div class="brand-text">
+          <h1>VELOFLUX</h1>
+          <span class="tagline">GPX RIDE TELEMETRY ANALYZER</span>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <input type="file" id="gpx-file-input" accept=".gpx" style="display: none;">
+        <input type="file" id="secondary-file-input" accept=".gpx" style="display: none;">
+        <button id="upload-btn" class="btn btn-primary">
+          <i data-lucide="upload-cloud"></i> Upload Primary GPX
+        </button>
+        <button id="merge-btn" class="btn btn-secondary" disabled>
+          <i data-lucide="git-merge"></i> Merge Secondary GPX (HR)
+        </button>
+        <button id="sample-btn" class="btn btn-secondary">
+          <i data-lucide="sparkles"></i> Load Sample Ride
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- Column 1: Stats & Map -->
+      <section class="left-column">
+        
+        <!-- Metrics Grid -->
+        <div class="metrics-grid">
+          <!-- Distance -->
+          <div class="metric-card" id="metric-distance">
+            <div class="metric-header">
+              <span>Distance</span>
+              <i data-lucide="milestone" class="metric-icon purple"></i>
+            </div>
+            <div class="metric-value">0.00 <span class="unit">km</span></div>
+            <div class="metric-footer">Total ride distance</div>
+          </div>
+          
+          <!-- Elevation Gain -->
+          <div class="metric-card" id="metric-elevation">
+            <div class="metric-header">
+              <span>Elevation Gain</span>
+              <i data-lucide="trending-up" class="metric-icon green"></i>
+            </div>
+            <div class="metric-value">0 <span class="unit">m</span></div>
+            <div class="metric-footer">Accumulated climbing</div>
+          </div>
+          
+          <!-- Moving Time -->
+          <div class="metric-card" id="metric-time">
+            <div class="metric-header">
+              <span>Moving Time</span>
+              <i data-lucide="timer" class="metric-icon blue"></i>
+            </div>
+            <div class="metric-value">00:00:00</div>
+            <div class="metric-footer">Time spent cycling</div>
+          </div>
+
+          <!-- Average Speed -->
+          <div class="metric-card" id="metric-speed">
+            <div class="metric-header">
+              <span>Avg Speed</span>
+              <i data-lucide="gauge" class="metric-icon orange"></i>
+            </div>
+            <div class="metric-value">0.0 <span class="unit">km/h</span></div>
+            <div class="metric-footer">Max: <span id="max-speed-val">0.0</span> km/h</div>
+          </div>
+
+          <!-- Average Power -->
+          <div class="metric-card" id="metric-power">
+            <div class="metric-header">
+              <span>Avg Power</span>
+              <i data-lucide="zap" class="metric-icon yellow"></i>
+            </div>
+            <div class="metric-value">0 <span class="unit">W</span></div>
+            <div class="metric-footer">NP: <span id="np-val">0</span> W // TSS: <span id="tss-val">0</span></div>
+          </div>
+
+          <!-- Avg HR / Cadence -->
+          <div class="metric-card" id="metric-telemetry">
+            <div class="metric-header">
+              <span>Biometrics & Cadence</span>
+              <i data-lucide="heart-handshake" class="metric-icon red"></i>
+            </div>
+            <div class="metric-value-split">
+              <div><span class="sub-label">HR</span> <span id="avg-hr-val">0</span> <span class="unit">bpm</span></div>
+              <div class="divider"></div>
+              <div><span class="sub-label">CAD</span> <span id="avg-cad-val">0</span> <span class="unit">rpm</span></div>
+            </div>
+            <div class="metric-footer">Max HR: <span id="max-hr-val">0</span> // Max Cad: <span id="max-cad-val">0</span></div>
+          </div>
+
+          <!-- Aero & CdA -->
+          <div class="metric-card" id="metric-aero">
+            <div class="metric-header">
+              <span>Est. CdA (Aero)</span>
+              <i data-lucide="wind" class="metric-icon cyan"></i>
+            </div>
+            <div class="metric-value"><span id="top-cda-val">--</span> <span class="unit">m²</span></div>
+            <div class="metric-footer"><span id="top-bike-type">--</span></div>
+          </div>
+
+          <!-- Efficiency -->
+          <div class="metric-card" id="metric-efficiency">
+            <div class="metric-header">
+              <span>Efficiency</span>
+              <i data-lucide="target" class="metric-icon teal"></i>
+            </div>
+            <div class="metric-value-split">
+              <div><span class="sub-label">VI</span> <span id="top-vi-val">--</span></div>
+              <div class="divider"></div>
+              <div><span class="sub-label">kJ</span> <span id="top-kj-val">--</span></div>
+            </div>
+            <div class="metric-footer">Pacing Score & Work Done</div>
+          </div>
+        </div>
+
+        <!-- Map Section -->
+        <div class="card map-card">
+          <div class="card-header">
+            <h2><i data-lucide="map"></i> Route Profile & GPS Track</h2>
+            <div class="map-controls">
+              <span class="badge" id="ride-name-badge">No Ride Loaded</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="map"></div>
+          </div>
+        </div>
+
+        <!-- Climb Analysis Panel -->
+        <div class="card climbs-card">
+          <div class="card-header">
+            <h2><i data-lucide="mountain"></i> Detected Climbs & Segments</h2>
+          </div>
+          <div class="card-body scrollable">
+            <div id="climbs-list" class="climbs-list">
+              <div class="placeholder-text">Load a ride to scan for climbs...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smart Pacing Strategy Panel -->
+
+        <!-- GPX Diagnostics Inspector (Collapsible) -->
+        <div class="card debug-card collapsed" id="debug-card">
+          <div class="card-header" id="debug-header" style="cursor: pointer;">
+            <h2><i data-lucide="bug"></i> GPX Diagnostics Inspector</h2>
+            <i data-lucide="chevron-down" class="toggle-icon"></i>
+          </div>
+          <div class="card-body debug-body" style="display: none;">
+            <div class="debug-meta">
+              <div class="debug-meta-item"><span>File Name:</span> <span id="debug-filename">None</span></div>
+              <div class="debug-meta-item"><span>Total Points:</span> <span id="debug-points">0</span></div>
+              <div class="debug-meta-item"><span>Has Power:</span> <span id="debug-has-power">No</span></div>
+              <div class="debug-meta-item"><span>Has HR:</span> <span id="debug-has-hr">No</span></div>
+              <div class="debug-meta-item"><span>Has Cadence:</span> <span id="debug-has-cad">No</span></div>
+            </div>
+            <div class="debug-xml-section">
+              <div class="debug-xml-title">First Trackpoint XML Snippet:</div>
+              <pre id="debug-xml-content" class="debug-xml-content">No file loaded yet...</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Column 2: Telemetry Charts -->
+      <section class="right-column">
+        <div class="card charts-card">
+          <div class="card-header">
+            <h2><i data-lucide="line-chart"></i> Telemetry & Performance Charts</h2>
+            <div class="chart-options">
+              <span class="badge-interactive active" id="chart-distance-axis-btn">Distance X-Axis</span>
+              <span class="badge-interactive" id="chart-time-axis-btn">Time X-Axis</span>
+            </div>
+          </div>
+          <div class="card-body charts-body" style="position: relative; user-select: none;">
+            <div id="chart-selection-box" class="chart-selection-box" style="display: none;"></div>
+            <!-- Sync Tooltip Overlay Info -->
+            <div class="chart-telemetry-overlay" id="sync-tooltip-overlay">
+              <div class="overlay-item"><span class="label">Dist:</span> <span id="overlay-dist">-</span> km</div>
+              <div class="overlay-item"><span class="label">Time:</span> <span id="overlay-time">-</span></div>
+              <div class="overlay-item"><span class="label">Ele:</span> <span id="overlay-ele">-</span> m</div>
+              <div class="overlay-item"><span class="label">Speed:</span> <span id="overlay-speed">-</span> km/h</div>
+              <div class="overlay-item"><span class="label">Power:</span> <span id="overlay-power">-</span> W</div>
+              <div class="overlay-item"><span class="label">Cad:</span> <span id="overlay-cad">-</span> rpm</div>
+              <div class="overlay-item"><span class="label">HR:</span> <span id="overlay-hr">-</span> bpm</div>
+              <div class="overlay-item"><span class="label">Grade:</span> <span id="overlay-grade">-</span> %</div>
+            </div>
+
+            <!-- Chart Canvases -->
+            <div class="chart-wrapper">
+              <div class="chart-title-tag">Elevation & Speed Profile</div>
+              <div class="canvas-container">
+                <canvas id="chart-elevation"></canvas>
+              </div>
+            </div>
+            
+            <div class="chart-wrapper">
+              <div class="chart-title-tag">Power & Cadence Output</div>
+              <div class="canvas-container">
+                <canvas id="chart-power"></canvas>
+              </div>
+            </div>
+            
+            <div class="chart-wrapper">
+              <div class="chart-title-tag">Heart Rate & Temperature Telemetry</div>
+              <div class="canvas-container">
+                <canvas id="chart-biometrics"></canvas>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Segment Analysis Panel -->
+          <div id="segment-analysis-panel" class="segment-analysis-panel" style="display: none;">
+            <div class="panel-header">
+              <h3><i data-lucide="zap"></i> Segment Analysis</h3>
+              <button id="close-segment-btn" class="close-btn"><i data-lucide="x"></i></button>
+            </div>
+            <div class="panel-body">
+              <div class="seg-stat"><span class="label">Dist:</span> <span class="val" id="seg-dist">--</span></div>
+              <div class="seg-stat"><span class="label">Time:</span> <span class="val" id="seg-time">--</span></div>
+              <div class="seg-stat"><span class="label">Speed:</span> <span class="val" id="seg-speed">--</span></div>
+              <div class="seg-stat highlight"><span class="label">Avg Pwr:</span> <span class="val" id="seg-avg-pwr">--</span></div>
+              <div class="seg-stat highlight"><span class="label">NP:</span> <span class="val" id="seg-np">--</span></div>
+              <div class="seg-stat"><span class="label">Ele Gain:</span> <span class="val" id="seg-ele">--</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+        <div class="card pacing-card" id="pacing-card">
+          <div class="card-header">
+            <h2><i data-lucide="brain-circuit"></i> Smart Pacing</h2>
+            <div class="pacing-controls" style="display: flex; gap: 1rem; align-items: center;">
+              <div class="pacing-weight-control" title="Peso do Ciclista">
+                <label for="pacing-rider-weight" style="font-size: 0.8rem; color: var(--text-muted);">Rider:</label>
+                <input type="number" id="pacing-rider-weight" value="68" min="30" max="150" step="1" style="width: 45px; background: transparent; border: 1px solid var(--border); color: #fff; padding: 2px 4px; border-radius: 4px;">
+                <span class="unit" style="font-size: 0.8rem; color: var(--text-muted);">kg</span>
+              </div>
+              <div class="pacing-weight-control" title="Peso da Bicicleta + Equipamentos">
+                <label for="pacing-bike-weight" style="font-size: 0.8rem; color: var(--text-muted);">Bike:</label>
+                <input type="number" id="pacing-bike-weight" value="10" min="5" max="30" step="1" style="width: 40px; background: transparent; border: 1px solid var(--border); color: #fff; padding: 2px 4px; border-radius: 4px;">
+                <span class="unit" style="font-size: 0.8rem; color: var(--text-muted);">kg</span>
+              </div>
+              <div class="pacing-cda-control" title="Coeficiente Aerodinâmico">
+                <label for="pacing-cda-input" style="font-size: 0.8rem; color: var(--text-muted);">CdA:</label>
+                <input type="number" id="pacing-cda-input" value="0.220" min="0.100" max="0.500" step="0.001" style="width: 60px; background: transparent; border: 1px solid var(--border); color: #fff; padding: 2px 4px; border-radius: 4px;">
+                <span class="unit" style="font-size: 0.8rem; color: var(--text-muted);">m²</span>
+              </div>
+            </div>
+            <span class="badge" id="current-phase-badge">Phase: Warmup</span>
+          </div>
+          <div class="card-body scrollable">
+            <!-- Aero & Efficiency HUD -->
+            <div id="pacing-aero-stats" class="pacing-aero-stats" style="display: none;">
+              <div class="aero-stat-card">
+                <span class="label">Est. CdA (Aero)</span>
+                <span class="value" id="aero-cda-val">--</span>
+                <span class="desc" id="aero-bike-type">--</span>
+              </div>
+              <div class="aero-stat-card">
+                <span class="label">Pacing Score</span>
+                <span class="value" id="aero-vi-val">--</span>
+                <span class="desc" id="aero-vi-desc">--</span>
+              </div>
+              <div class="aero-stat-card">
+                <span class="label">Work Done</span>
+                <span class="value" id="aero-kj-val">--</span>
+                <span class="desc">Total Energy</span>
+              </div>
+            </div>
+            
+            <!-- Interactive Terrain Power Sliders -->
+            <div id="interactive-pacing-panel" class="interactive-pacing-panel" style="display: none;">
+              <div class="predictions-header">Terrain Power Strategy</div>
+              
+              <div class="slider-group climb-short">
+                <div class="slider-header">
+                  <span class="terrain-label">⛰️ Subida Curta (< 500m)</span>
+                  <span class="terrain-dist"><span id="dist-climb-short">0.0 km</span> | <span id="spd-climb-short" style="color: var(--cyan);">0.0 km/h</span></span>
+                </div>
+                <div class="slider-control">
+                  <input type="range" id="slider-climb-short" min="50" max="500" value="250">
+                  <span class="slider-val" id="val-climb-short">250W</span>
+                </div>
+              </div>
+
+              <div class="slider-group climb-medium">
+                <div class="slider-header">
+                  <span class="terrain-label">⛰️ Subida Média (500m - 1km)</span>
+                  <span class="terrain-dist"><span id="dist-climb-medium">0.0 km</span> | <span id="spd-climb-medium" style="color: var(--cyan);">0.0 km/h</span></span>
+                </div>
+                <div class="slider-control">
+                  <input type="range" id="slider-climb-medium" min="50" max="500" value="220">
+                  <span class="slider-val" id="val-climb-medium">220W</span>
+                </div>
+              </div>
+
+              <div class="slider-group climb-long">
+                <div class="slider-header">
+                  <span class="terrain-label">🏔️ Subida Longa (> 1km)</span>
+                  <span class="terrain-dist"><span id="dist-climb-long">0.0 km</span> | <span id="spd-climb-long" style="color: var(--cyan);">0.0 km/h</span></span>
+                </div>
+                <div class="slider-control">
+                  <input type="range" id="slider-climb-long" min="50" max="500" value="200">
+                  <span class="slider-val" id="val-climb-long">200W</span>
+                </div>
+              </div>
+
+              <div class="slider-group flat">
+                <div class="slider-header">
+                  <span class="terrain-label">➡️ Plano</span>
+                  <span class="terrain-dist"><span id="dist-flat">0.0 km</span> | <span id="spd-flat" style="color: var(--cyan);">0.0 km/h</span></span>
+                </div>
+                <div class="slider-control">
+                  <input type="range" id="slider-flat" min="50" max="500" value="180">
+                  <span class="slider-val" id="val-flat">180W</span>
+                </div>
+              </div>
+
+              <div class="slider-group descent">
+                <div class="slider-header">
+                  <span class="terrain-label">⬇️ Descida</span>
+                  <span class="terrain-dist"><span id="dist-descent">0.0 km</span> | <span id="spd-descent" style="color: var(--cyan);">0.0 km/h</span></span>
+                </div>
+                <div class="slider-control">
+                  <input type="range" id="slider-descent" min="0" max="300" value="50">
+                  <span class="slider-val" id="val-descent">50W</span>
+                </div>
+              </div>
+
+              <!-- Simulation Results -->
+              <div class="simulation-results-box">
+                <div class="sim-result">
+                  <span class="sim-label">Est. Time (Total)</span>
+                  <span class="sim-value" id="sim-total-time">--:--:--</span>
+                </div>
+                <div class="sim-result">
+                  <span class="sim-label">Est. Avg Speed</span>
+                  <span class="sim-value" id="sim-avg-speed">-- km/h</span>
+                  <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; text-align: center;">Max: <span id="sim-max-speed" style="color: var(--cyan);">--</span> km/h</div>
+                </div>
+                <div class="sim-result">
+                  <span class="sim-label">Est. Avg Power</span>
+                  <span class="sim-value" id="sim-avg-power">-- W</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </main>
+
+    <!-- Playback Simulator Footer Control -->
+    <footer class="playback-bar-card">
+      <div class="playback-controls">
+        <button id="play-btn" class="playback-btn" title="Play Simulation">
+          <i data-lucide="play"></i>
+        </button>
+        <button id="pause-btn" class="playback-btn" title="Pause Simulation" style="display: none;">
+          <i data-lucide="pause"></i>
+        </button>
+        <button id="stop-btn" class="playback-btn" title="Reset Simulation">
+          <i data-lucide="square"></i>
+        </button>
+        
+        <div class="playback-progress-container">
+          <span class="time-display" id="playback-current-time">00:00:00</span>
+          <input type="range" id="playback-slider" min="0" max="100" value="0" class="playback-slider">
+          <span class="time-display" id="playback-total-time">00:00:00</span>
+        </div>
+
+        <div class="playback-speed-selector">
+          <span class="speed-label">Speed:</span>
+          <button class="speed-btn active" data-speed="1">1x</button>
+          <button class="speed-btn" data-speed="5">5x</button>
+          <button class="speed-btn" data-speed="15">15x</button>
+          <button class="speed-btn" data-speed="30">30x</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  
+  <!-- Chart.js JS -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Sample Data JS -->
+  <script src="sample-ride.js"></script>
+  
+  <!-- Main Logic JS -->
+  <script src="app.js?v=20"></script>
+  
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>

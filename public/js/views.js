@@ -220,6 +220,7 @@ function renderDesktopIcons(installedApps) {
     else if (app.id === 'plex') bg = '#E5A00D';
     else if (app.id === 'homeassistant') bg = '#03A9F4';
     else if (app.id === 'settings') bg = '#333';
+    else if (app.id === 'gpx-dashboard') bg = '#e65100';
 
     appsHtml += '<div class="desktop-icon" data-app-id="' + app.id + '">' +
                   '<div class="icon-wrapper" style="background:' + bg + '">' + icon + '</div>' +

@@ -48,6 +48,14 @@ const DEFAULT_APPS = [
     description: 'Navegue na internet de dentro do seu servidor', 
     category: 'Utilidades', 
     official: true 
+  },
+  {
+    id: 'gpx-dashboard',
+    name: 'GPX Dashboard',
+    icon: 'map',
+    description: 'Análise de telemetria e visualização de rotas GPX',
+    category: 'Utilidades',
+    official: true
   }
 ];
 
@@ -56,7 +64,7 @@ function ensureAppsConfig() {
   if (!config || !config.available || !config.installed) {
     config = {
       available: DEFAULT_APPS,
-      installed: ['explorer', 'speedtest', 'cameras', 'settings', 'browser'],
+      installed: ['explorer', 'speedtest', 'cameras', 'settings', 'browser', 'gpx-dashboard'],
       permissions: {}
     };
     config.installed.forEach(id => {
@@ -83,6 +91,17 @@ function ensureAppsConfig() {
       config.installed.push('browser');
       if (!config.permissions['browser']) {
         config.permissions['browser'] = { 
+          byRole: { admin: true, master: true, user: true },
+          byUser: {}
+        };
+      }
+    }
+
+    // FORCE: Ensure 'gpx-dashboard' is in the installed list
+    if (!config.installed.includes('gpx-dashboard')) {
+      config.installed.push('gpx-dashboard');
+      if (!config.permissions['gpx-dashboard']) {
+        config.permissions['gpx-dashboard'] = { 
           byRole: { admin: true, master: true, user: true },
           byUser: {}
         };
