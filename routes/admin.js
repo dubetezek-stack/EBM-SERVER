@@ -681,6 +681,8 @@ router.post('/server/update', requireAdmin, async (req, res) => {
     // Atualiza submódulos e compila (como o BeRich)
     try {
       if (global.addLog) global.addLog('INFO', 'Atualizando submódulos...', req.ip);
+      execSync('git config --global protocol.file.allow always', { stdio: 'inherit' });
+      execSync('git submodule sync', { stdio: 'inherit' });
       execSync('git submodule update --init --recursive', { stdio: 'inherit' });
       execSync('git submodule update --remote --merge', { stdio: 'inherit' });
       execSync('git submodule update --recursive --force', { stdio: 'inherit' });
