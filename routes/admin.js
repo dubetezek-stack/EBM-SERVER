@@ -690,9 +690,14 @@ router.post('/server/update', requireAdmin, async (req, res) => {
       const berichDir = path.join(__dirname, '..', 'berich');
       if (fs.existsSync(berichDir)) {
         if (global.addLog) global.addLog('INFO', 'Compilando nova versão do BeRich...', req.ip);
+        const envPath = path.join(berichDir, '.env');
+        if (!fs.existsSync(envPath)) {
+          const fs = require('fs');
+          fs.writeFileSync(envPath, 'DATABASE_URL="file:./dev.db"\n');
+        }
         const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-        execSync(`${npmCmd} install`, { cwd: berichDir, stdio: 'ignore' });
-        execSync(`${npmCmd} run build`, { cwd: berichDir, stdio: 'ignore' });
+        execSync(`${npmCmd} install`, { cwd: berichDir, stdio: 'inherit' });
+        execSync(`${npmCmd} run build`, { cwd: berichDir, stdio: 'inherit' });
       }
     } catch (e) {
       if (global.addLog) global.addLog('WARNING', 'Erro ao atualizar submódulo: ' + e.message, req.ip);
