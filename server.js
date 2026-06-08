@@ -95,6 +95,34 @@ app.options('/speedtest/upload', (req, res) => {
   res.status(200).send();
 });
 
+// BeRich Native Proxy (Must be before express.json)
+app.all('/berich*', (req, res) => {
+  const options = {
+    hostname: '127.0.0.1',
+    port: 3005,
+    path: req.url,
+    method: req.method,
+    headers: { ...req.headers }
+  };
+  options.headers.host = '127.0.0.1:3005';
+  delete options.headers.connection;
+  
+  const proxyReq = http.request(options, (proxyRes) => {
+    Object.keys(proxyRes.headers).forEach(key => {
+      res.setHeader(key, proxyRes.headers[key]);
+    });
+    res.writeHead(proxyRes.statusCode);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', (err) => {
+    if (!res.headersSent) {
+      const loadingHtml = `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="2"><style>body{background:#000;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;margin:0}.loader{border:4px solid #333;border-top:4px solid #10b981;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin-bottom:16px}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.container{display:flex;flex-direction:column;align-items:center}</style></head><body><div class="container"><div class="loader"></div><div>Iniciando BeRich... Aguarde.</div></div></body></html>`;
+      res.status(502).send(loadingHtml);
+    }
+  });
+  req.pipe(proxyReq);
+});
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -194,6 +222,7 @@ function proxyRequest(req, res, appId, subPath) {
   req.pipe(proxyReq);
 }
 
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -254,7 +283,30 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   };
   
   // Start apps after a short delay to ensure system is ready
-  setTimeout(startApps, 2000);
+  setTimeout(() => {
+    startApps();
+    
+    // Auto-start BeRich Native Submodule
+    try {
+      const berichDir = path.join(__dirname, 'berich');
+      if (fs.existsSync(berichDir)) {
+        const { spawn } = require('child_process');
+        const nextBin = path.join(berichDir, 'node_modules', 'next', 'dist', 'bin', 'next');
+        const berichProc = spawn(process.execPath, [nextBin, 'start'], {
+          cwd: berichDir,
+          env: { ...process.env, PORT: '3005' },
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: true
+        });
+        berichProc.unref();
+        console.log('  [*] BeRich (Submódulo) iniciado na porta 3005.');
+        if (global.addLog) global.addLog('INFO', 'BeRich interno iniciado');
+      }
+    } catch (e) {
+      console.error('Falha ao iniciar BeRich:', e);
+    }
+  }, 2000);
 });
 
 

@@ -221,6 +221,7 @@ function renderDesktopIcons(installedApps) {
     else if (app.id === 'homeassistant') bg = '#03A9F4';
     else if (app.id === 'settings') bg = '#333';
     else if (app.id === 'gpx-dashboard') bg = '#e65100';
+    else if (app.id === 'berich') bg = '#10b981';
 
     appsHtml += '<div class="desktop-icon" data-app-id="' + app.id + '">' +
                   '<div class="icon-wrapper" style="background:' + bg + '">' + icon + '</div>' +
@@ -434,6 +435,7 @@ function renderGenericAppView(app) {
     if (app.id === 'transmission') url = 'http://' + hostname + ':9091?cb=' + cb;
     if (app.id === 'homeassistant') url = 'http://' + hostname + ':8123?cb=' + cb;
     if (app.id === 'portainer') url = 'http://' + hostname + ':9000?cb=' + cb;
+    if (app.id === 'berich') url = '/berich/';
   }
 
   var iconHtml = Icons[app.icon] || Icons.file;

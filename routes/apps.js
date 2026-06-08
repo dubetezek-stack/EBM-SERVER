@@ -56,6 +56,14 @@ const DEFAULT_APPS = [
     description: 'Análise de telemetria e visualização de rotas GPX',
     category: 'Utilidades',
     official: true
+  },
+  {
+    id: 'berich',
+    name: 'BeRich',
+    icon: 'berich',
+    description: 'Sistema de Gestão Financeira Inteligente',
+    category: 'Finanças',
+    official: true
   }
 ];
 
@@ -102,6 +110,17 @@ function ensureAppsConfig() {
       config.installed.push('gpx-dashboard');
       if (!config.permissions['gpx-dashboard']) {
         config.permissions['gpx-dashboard'] = { 
+          byRole: { admin: true, master: true, user: true },
+          byUser: {}
+        };
+      }
+    }
+
+    // FORCE: Ensure 'berich' is in the installed list
+    if (!config.installed.includes('berich')) {
+      config.installed.push('berich');
+      if (!config.permissions['berich']) {
+        config.permissions['berich'] = { 
           byRole: { admin: true, master: true, user: true },
           byUser: {}
         };

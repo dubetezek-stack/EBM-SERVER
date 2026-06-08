@@ -1,0 +1,3 @@
+[submodule "berich"]
+	path = berich
+	url = ../BeRich
