@@ -291,13 +291,15 @@ const server = app.listen(PORT, '0.0.0.0', () => {
       const berichDir = path.join(__dirname, 'berich');
       if (fs.existsSync(berichDir)) {
         const { spawn } = require('child_process');
-        const nextBin = path.join(berichDir, 'node_modules', 'next', 'dist', 'bin', 'next');
-        const berichProc = spawn(process.execPath, [nextBin, 'start'], {
+        const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const logStream = fs.createWriteStream(path.join(__dirname, 'berich_error.log'), { flags: 'a' });
+        logStream.write('\n\n--- Iniciando BeRich (' + new Date().toISOString() + ') ---\n');
+        
+        const berichProc = spawn(npmCmd, ['start'], {
           cwd: berichDir,
           env: { ...process.env, PORT: '3005' },
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: true
+          stdio: ['ignore', logStream, logStream],
+          detached: false
         });
         berichProc.unref();
         console.log('  [*] BeRich (Submódulo) iniciado na porta 3005.');
