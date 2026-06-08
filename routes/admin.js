@@ -680,6 +680,7 @@ router.post('/server/update', requireAdmin, async (req, res) => {
       if (global.addLog) global.addLog('INFO', 'Atualizando submódulos...', req.ip);
       execSync('git submodule update --init --recursive', { stdio: 'inherit' });
       execSync('git submodule update --remote --merge', { stdio: 'inherit' });
+      execSync('git submodule update --recursive --force', { stdio: 'inherit' });
       
       const berichDir = path.join(__dirname, '..', 'berich');
       if (fs.existsSync(berichDir)) {
