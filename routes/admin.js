@@ -606,7 +606,10 @@ router.post('/server/restart', requireAdmin, (req, res) => {
 router.post('/server/update', requireAdmin, async (req, res) => {
   try {
     const { execSync } = require('child_process');
-    if (global.addLog) global.addLog('INFO', 'Iniciando atualização forçada...', req.ip);
+    if (global.addLog) global.addLog('INFO', 'Iniciando atualização...', req.ip);
+
+    // Fix para rodar como Serviço do Windows (Erro: dubious ownership)
+    execSync('git config --global --add safe.directory *', { stdio: 'inherit' });
     
     // 1. Verify remotes, add default if none found
     let remotes = [];
