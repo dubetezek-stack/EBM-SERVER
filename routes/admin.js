@@ -690,13 +690,14 @@ router.post('/server/update', requireAdmin, async (req, res) => {
           const fs = require('fs');
           fs.writeFileSync(envPath, 'DATABASE_URL="file:./dev.db"\n');
         }
-        const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const nodePath = process.execPath;
+        const npmCliPath = path.join(path.dirname(nodePath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
         const logFile = path.join(__dirname, '..', 'berich_build.log');
         const fs = require('fs');
         fs.writeFileSync(logFile, '--- Iniciando compilação do BeRich ---\\n');
         try {
-          execSync(`${npmCmd} install >> "${logFile}" 2>&1`, { cwd: berichDir });
-          execSync(`${npmCmd} run build >> "${logFile}" 2>&1`, { cwd: berichDir });
+          execSync(`"${nodePath}" "${npmCliPath}" install >> "${logFile}" 2>&1`, { cwd: berichDir });
+          execSync(`"${nodePath}" "${npmCliPath}" run build >> "${logFile}" 2>&1`, { cwd: berichDir });
         } catch (buildErr) {
           fs.appendFileSync(logFile, '\\n\\nERRO NA COMPILAÇÃO:\\n' + buildErr.message);
           throw buildErr;
