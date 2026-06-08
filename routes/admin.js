@@ -678,14 +678,9 @@ router.post('/server/update', requireAdmin, async (req, res) => {
 
     execSync(`git reset --hard ${remoteRef}`, { stdio: 'inherit' });
     
-    // Atualiza submódulos e compila (como o BeRich)
+    // Atualiza dependências e compila o BeRich
     try {
-      if (global.addLog) global.addLog('INFO', 'Atualizando submódulos...', req.ip);
-      execSync('git config --global protocol.file.allow always', { stdio: 'inherit' });
-      execSync('git submodule sync', { stdio: 'inherit' });
-      execSync('git submodule update --init --recursive', { stdio: 'inherit' });
-      execSync('git submodule update --remote --merge', { stdio: 'inherit' });
-      execSync('git submodule update --recursive --force', { stdio: 'inherit' });
+      if (global.addLog) global.addLog('INFO', 'Sincronizando arquivos do BeRich...', req.ip);
       
       const berichDir = path.join(__dirname, '..', 'berich');
       if (fs.existsSync(berichDir)) {
