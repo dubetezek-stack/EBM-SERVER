@@ -675,6 +675,23 @@ router.post('/server/update', requireAdmin, async (req, res) => {
 
     execSync(`git reset --hard ${remoteRef}`, { stdio: 'inherit' });
     
+    // Atualiza submódulos e compila (como o BeRich)
+    try {
+      if (global.addLog) global.addLog('INFO', 'Atualizando submódulos...', req.ip);
+      execSync('git submodule update --init --recursive', { stdio: 'inherit' });
+      execSync('git submodule update --remote --merge', { stdio: 'inherit' });
+      
+      const berichDir = path.join(__dirname, '..', 'berich');
+      if (fs.existsSync(berichDir)) {
+        if (global.addLog) global.addLog('INFO', 'Compilando nova versão do BeRich...', req.ip);
+        const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        execSync(`${npmCmd} install`, { cwd: berichDir, stdio: 'ignore' });
+        execSync(`${npmCmd} run build`, { cwd: berichDir, stdio: 'ignore' });
+      }
+    } catch (e) {
+      if (global.addLog) global.addLog('WARNING', 'Erro ao atualizar submódulo: ' + e.message, req.ip);
+    }
+    
     if (global.addLog) global.addLog('INFO', 'Sucesso! Reiniciando...', req.ip);
     res.json({ success: true, message: `Atualizado para ${remoteRef}. Reiniciando...`, updated: true });
     
